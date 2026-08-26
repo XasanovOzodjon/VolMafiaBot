@@ -244,7 +244,7 @@ button.ghost.on {
 .sheet-body h2 {
   margin: 0 0 8px; font-family: Sora, Outfit, sans-serif; font-size: 1.35rem;
 }
-.sheet-body p { margin: 0 0 14px; color: var(--mute); line-height: 1.45; }
+.sheet-body p { margin: 0 0 14px; color: var(--mute); line-height: 1.45; white-space: pre-line; }
 .sheet-body .price { font-size: 1.15rem; margin-bottom: 16px; }
 .sheet-body .buy { width: 100%; padding: 14px; font-size: 1rem; border-radius: 16px; }
 
@@ -430,6 +430,9 @@ button.ghost.on {
   50% { transform: translateY(calc(-50% - 7px)) rotate(12deg); }
 }
 
+.badge-tile .art {
+  clip-path: circle(46% at 50% 50%);
+}
 .badge-block { margin-top: 16px; text-align: left; }
 .badge-block h3 {
   margin: 0 0 10px;

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ t('brand') }} — {{ t('panel') }}</title>
+  <link rel="stylesheet" href="/static/style.css?v=tg14">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;800&family=Outfit:wght@400;600;700&display=swap" media="print" onload="this.media='all'">
+</head>
+<body>
+<div class="orbs" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">{{ t('brand') }}<small>{{ t('panel') }}</small></div>
+    <nav class="nav">
+      <a href="/" class="{{ 'on' if nav=='dash' else '' }}">{{ t('nav_dash') }}</a>
+      <a href="/groups" class="{{ 'on' if nav=='groups' else '' }}">{{ t('nav_groups') }}</a>
+      <a href="/users" class="{{ 'on' if nav=='users' else '' }}">{{ t('nav_users') }}</a>
+      {% if can('ads') %}<a href="/ads" class="{{ 'on' if nav=='ads' else '' }}">{{ t('nav_ads') }}</a>{% endif %}
+      {% if can('shop') %}<a href="/shop" class="{{ 'on' if nav=='shop' else '' }}">{{ t('nav_shop') }}</a>{% endif %}
+      {% if can('shop') %}<a href="/gifts" class="{{ 'on' if nav=='gifts' else '' }}">{{ t('nav_gifts') }}</a>{% endif %}
+      {% if can('shop') %}<a href="/badges" class="{{ 'on' if nav=='badges' else '' }}">{{ t('nav_badges') }}</a>{% endif %}
+      {% if can('staff') %}<a href="/economy" class="{{ 'on' if nav=='econ' else '' }}">{{ t('nav_econ') }}</a>{% endif %}
+      {% if can('settings') %}<a href="/i18n" class="{{ 'on' if nav=='i18n' else '' }}">{{ t('nav_i18n') }}</a>{% endif %}
+      {% if can('settings') %}<a href="/settings" class="{{ 'on' if nav=='settings' else '' }}">{{ t('nav_settings') }}</a>{% endif %}
+      {% if can('staff') %}<a href="/staff" class="{{ 'on' if nav=='staff' else '' }}">{{ t('nav_staff') }}</a>{% endif %}
+      {% if can('staff') %}<a href="/logs" class="{{ 'on' if nav=='logs' else '' }}">{{ t('nav_logs') }}</a>{% endif %}
+      <a href="/logout">{{ t('logout') }}</a>
+    </nav>
+  </aside>
+  <section class="main">
+    <div class="top">
+      <div class="who">{{ s.name if s else '' }} · <b>{{ role }}</b></div>
+      <div class="langs">
+        <a href="/lang/uz" class="{{ 'on' if lang=='uz' else '' }}">UZ</a>
+        <a href="/lang/ru" class="{{ 'on' if lang=='ru' else '' }}">RU</a>
+      </div>
+    </div>
+    {% if ok %}<div class="flash ok">{{ t(ok) }}</div>{% endif %}
+    {% if err %}<div class="flash err">{{ t(err) }}</div>{% endif %}
+    {% block body %}{% endblock %}
+  </section>
+</div>
+{% block extra %}{% endblock %}
+</body>
+</html>

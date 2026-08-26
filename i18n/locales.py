@@ -286,6 +286,20 @@ TEXTS: dict[str, dict[str, str]] = {
         ),
         "reg_empty": "Hali hech kim yo'q",
         "need_admin": "⚠️ Botni admin qiling: xabarlarni o'chirish va a'zolarni cheklash.",
+        "mod_need_user": "Reply qiling yoki @username yozing.",
+        "mod_need_restrict": "Botga mute huquqini bering (Restrict members).",
+        "mod_cannot_mute": "Bu odamni mute qila olmayman (guruh admini).",
+        "mod_delete_fail": "Xabar o'chmadi.",
+        "mod_muted": "Mute qo'yildi.",
+        "mod_unmuted": "Mute yechildi.",
+        "mod_banned": "Bu guruhdagi o'yinga ban.",
+        "mod_unbanned": "O'yin bani yechildi.",
+        "mod_game_silence": "O'yin sukuti ustun — o'likni yozdirmayman.",
+        "profile_badge_shart": "Shart",
+        "profile_badge_when": "Olingan",
+        "market_empty_badges": "Badge yo'q.",
+        "market_confirm_badge": "{title} Rank {r} — 🪙 {n}?",
+        "join_game_ban": "Bu guruhda o'ynay olmaysiz (ban).",
         "game_started": (
             "<b>O'yin boshlandi!</b>\n\n"
             "Barcha volonter o'z rollaringizni ko'rishingiz mumkin."
@@ -872,6 +886,20 @@ TEXTS: dict[str, dict[str, str]] = {
         ),
         "reg_empty": "Пока никого нет",
         "need_admin": "⚠️ Сделайте бота админом: удаление сообщений и ограничение участников.",
+        "mod_need_user": "Ответьте на сообщение или укажите @username.",
+        "mod_need_restrict": "Дайте боту право mute (Restrict members).",
+        "mod_cannot_mute": "Не могу выдать mute — это админ группы.",
+        "mod_delete_fail": "Сообщение не удалилось.",
+        "mod_muted": "Mute выдан.",
+        "mod_unmuted": "Mute снят.",
+        "mod_banned": "Бан на игру в этой группе.",
+        "mod_unbanned": "Игровой бан снят.",
+        "mod_game_silence": "Правила игры важнее — мёртвого не размучу.",
+        "profile_badge_shart": "Условие",
+        "profile_badge_when": "Получен",
+        "market_empty_badges": "Нет Badge.",
+        "market_confirm_badge": "{title} Rank {r} — 🪙 {n}?",
+        "join_game_ban": "В этой группе играть нельзя (бан).",
         "game_started": (
             "<b>Игра началась!</b>\n\n"
             "Все волонтёры могут посмотреть свои роли."
@@ -1456,6 +1484,20 @@ TEXTS: dict[str, dict[str, str]] = {
         ),
         "reg_empty": "Nobody yet",
         "need_admin": "⚠️ Make the bot admin: delete messages and restrict members.",
+        "mod_need_user": "Reply to a message or add @username.",
+        "mod_need_restrict": "Grant the bot Restrict members so it can mute.",
+        "mod_cannot_mute": "Can't mute this user (group admin).",
+        "mod_delete_fail": "Could not delete the message.",
+        "mod_muted": "Muted.",
+        "mod_unmuted": "Unmuted.",
+        "mod_banned": "Banned from games in this group.",
+        "mod_unbanned": "Game ban lifted.",
+        "mod_game_silence": "Game silence wins — won't unmute a dead player.",
+        "profile_badge_shart": "Shart",
+        "profile_badge_when": "Earned",
+        "market_empty_badges": "No badges for sale.",
+        "market_confirm_badge": "{title} Rank {r} — 🪙 {n}?",
+        "join_game_ban": "You cannot play in this group (ban).",
         "game_started": (
             "<b>The game has started!</b>\n\n"
             "All volunteers can view their roles."

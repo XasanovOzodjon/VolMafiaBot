@@ -163,6 +163,7 @@ def catalog_image(item: dict | None = None, *, pack: bool = False) -> str:
             or path.startswith("/media/shop/")
             or path.startswith("/media/gifts/")
             or path.startswith("/media/swaps/")
+            or path.startswith("/media/badges/")
         )
     ):
         return path[:160]
@@ -170,6 +171,8 @@ def catalog_image(item: dict | None = None, *, pack: bool = False) -> str:
         if str(item.get("kind") or "") in ("money", "swap"):
             return "/static/shop/card.jpg"
         return "/static/shop/vcoin.jpg"
+    if "ranks" in item:
+        return ""
     iid = str(item.get("id") or "").strip()
     if iid and _IMG_ID_RE.match(iid):
         return f"/static/shop/{iid}.jpg"
@@ -227,6 +230,43 @@ def _migrate_shop_item(item: dict) -> dict:
 
 def _now() -> int:
     return int(time.time())
+
+
+def _badge_ranks(raw) -> list[dict]:
+    rows: list[dict] = []
+    if not isinstance(raw, list):
+        return rows
+    for i, item in enumerate(raw, start=1):
+        if not isinstance(item, dict):
+            continue
+        rank = int(item.get("rank") or i)
+        cost = max(0, int(item.get("vcoin_cost") or 0))
+        shart = str(item.get("shart_uz") or item.get("shart") or "").strip()
+        if rank < 1 or not shart:
+            continue
+        rows.append(
+            {
+                "rank": rank,
+                "shart_uz": str(item.get("shart_uz") or shart)[:200],
+                "shart_ru": str(item.get("shart_ru") or "")[:200],
+                "shart_en": str(item.get("shart_en") or "")[:200],
+                "vcoin_cost": cost,
+                "reward_vcoin": max(0, int(item.get("reward_vcoin") or 0)),
+                "reward_money": max(0, int(item.get("reward_money") or 0)),
+            }
+        )
+    rows.sort(key=lambda x: x["rank"])
+    return rows
+
+
+def _loc(item: dict, stem: str, lang: str) -> str:
+    lang = lang if lang in ("uz", "ru", "en") else "uz"
+    direct = str(item.get(f"{stem}_{lang}") or "").strip()
+    if direct:
+        return direct
+    return str(
+        item.get(f"{stem}_uz") or item.get(f"{stem}_ru") or item.get(stem) or ""
+    ).strip()
 
 
 def _day() -> str:
@@ -1264,3 +1304,256 @@ class AdminData:
 
     async def clear_staff_wait(self, admin_id: int) -> None:
         await self.redis.delete(f"mafia:staff:wait:{admin_id}")
+
+    async def ensure_badges(self) -> list[dict]:
+        raw = await self.redis.get("mafia:badges")
+        if raw:
+            try:
+                items = json.loads(raw)
+                if isinstance(items, list):
+                    return [x for x in items if isinstance(x, dict) and x.get("id")]
+            except (TypeError, ValueError):
+                pass
+        return []
+
+    async def save_badges(self, items: list[dict]) -> None:
+        await self.redis.set("mafia:badges", json.dumps(items, ensure_ascii=False))
+
+    async def upsert_badge(self, badge: dict) -> list[dict]:
+        row = {
+            "id": str(badge.get("id") or "").strip().lower(),
+            "emoji": str(badge.get("emoji") or "🏅")[:4],
+            "title_uz": str(badge.get("title_uz") or "")[:40],
+            "title_ru": str(badge.get("title_ru") or "")[:40],
+            "title_en": str(badge.get("title_en") or "")[:40],
+            "enabled": bool(badge.get("enabled", True)),
+            "image": str(badge.get("image") or "")[:160],
+            "ranks": _badge_ranks(badge.get("ranks")),
+        }
+        items = await self.ensure_badges()
+        found = False
+        for i, old in enumerate(items):
+            if old.get("id") == row["id"]:
+                items[i] = row
+                found = True
+                break
+        if not found:
+            items.append(row)
+        await self.save_badges(items)
+        return items
+
+    async def delete_badge(self, badge_id: str) -> list[dict]:
+        items = [x for x in await self.ensure_badges() if x.get("id") != badge_id]
+        await self.save_badges(items)
+        return items
+
+    async def badge_by_id(self, badge_id: str) -> Optional[dict]:
+        for item in await self.ensure_badges():
+            if item.get("id") == badge_id and item.get("enabled", True):
+                return item
+        return None
+
+    async def _badge_map(self, user_id: int) -> dict:
+        raw = await self.redis.get(f"mafia:user:badges:{user_id}")
+        if not raw:
+            return {}
+        try:
+            data = json.loads(raw)
+        except (TypeError, ValueError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    async def _save_badge_map(self, user_id: int, data: dict) -> None:
+        await self.redis.set(
+            f"mafia:user:badges:{user_id}", json.dumps(data, ensure_ascii=False)
+        )
+
+    async def user_badge(self, user_id: int, badge_id: str) -> Optional[dict]:
+        row = self._badge_map_row(await self._badge_map(user_id), badge_id)
+        return row
+
+    def _badge_map_row(self, data: dict, badge_id: str) -> Optional[dict]:
+        row = data.get(badge_id)
+        if not isinstance(row, dict):
+            return None
+        if int(row.get("rank") or 0) < 1:
+            return None
+        return row
+
+    async def _set_badge_rank(self, user_id: int, badge_id: str, rank: int) -> dict:
+        data = await self._badge_map(user_id)
+        row = dict(data.get(badge_id) or {})
+        got = dict(row.get("got") or {})
+        key = str(int(rank))
+        if key not in got:
+            got[key] = _now()
+        row["rank"] = int(rank)
+        row["got"] = got
+        data[badge_id] = row
+        await self._save_badge_map(user_id, data)
+        return row
+
+    async def next_shop_badge(self, user_id: int, badge_id: str) -> Optional[dict]:
+        cat = await self.badge_by_id(badge_id)
+        if not cat:
+            return None
+        owned = await self.user_badge(user_id, badge_id)
+        have = int(owned["rank"]) if owned else 0
+        want = have + 1
+        for row in cat.get("ranks") or []:
+            if int(row.get("rank") or 0) != want:
+                continue
+            if int(row.get("vcoin_cost") or 0) <= 0:
+                return None
+            return row
+        return None
+
+    async def listed_shop_badges(self, user_id: int, lang: str = "uz") -> list[dict]:
+        out: list[dict] = []
+        for cat in await self.ensure_badges():
+            if not cat.get("enabled", True):
+                continue
+            bid = str(cat.get("id") or "")
+            nxt = await self.next_shop_badge(user_id, bid)
+            if not nxt:
+                continue
+            out.append(
+                {
+                    "id": bid,
+                    "emoji": cat.get("emoji") or "🏅",
+                    "title": _loc(cat, "title", lang) or bid,
+                    "desc": _loc(nxt, "shart", lang),
+                    "vcoin": int(nxt.get("vcoin_cost") or 0),
+                    "rank": int(nxt.get("rank") or 0),
+                    "image": catalog_image(cat),
+                }
+            )
+        return out
+
+    async def buy_badge(self, user_id: int, badge_id: str) -> tuple[bool, str, dict]:
+        nxt = await self.next_shop_badge(user_id, badge_id)
+        stats = await self.get_stats(user_id)
+        if not nxt:
+            return False, "missing", stats
+        cost = int(nxt.get("vcoin_cost") or 0)
+        if int(stats.get("vcoin") or 0) < cost:
+            return False, "broke", stats
+        stats["vcoin"] = int(stats["vcoin"]) - cost
+        stats = await self.save_stats(user_id, stats)
+        await self._set_badge_rank(user_id, badge_id, int(nxt["rank"]))
+        await self.add_econ_log(
+            user_id, kind="badge", vcoin=-cost, item=f"{badge_id}:{nxt['rank']}"
+        )
+        return True, "ok", stats
+
+    async def grant_badge(
+        self, user_id: int, badge_id: str, rank: int
+    ) -> tuple[bool, str, dict]:
+        cat = await self.badge_by_id(badge_id)
+        stats = await self.get_stats(user_id)
+        rank = int(rank)
+        if not cat or rank < 1:
+            return False, "missing", stats
+        ranks = [int(r.get("rank") or 0) for r in cat.get("ranks") or []]
+        if ranks and rank not in ranks:
+            return False, "missing", stats
+        await self._set_badge_rank(user_id, badge_id, rank)
+        return True, "ok", stats
+
+    async def owned_badges(self, user_id: int, lang: str = "uz") -> list[dict]:
+        catalog = {
+            str(x.get("id")): x
+            for x in await self.ensure_badges()
+            if x.get("enabled", True)
+        }
+        data = await self._badge_map(user_id)
+        out: list[dict] = []
+        for bid, row in data.items():
+            cat = catalog.get(str(bid))
+            owned = self._badge_map_row({bid: row}, bid)
+            if not cat or not owned:
+                continue
+            rank = int(owned["rank"])
+            shart = ""
+            for r in cat.get("ranks") or []:
+                if int(r.get("rank") or 0) == rank:
+                    shart = _loc(r, "shart", lang)
+                    break
+            got = dict(owned.get("got") or {})
+            title = _loc(cat, "title", lang) or bid
+            out.append(
+                {
+                    "id": bid,
+                    "rank": rank,
+                    "emoji": cat.get("emoji") or "🏅",
+                    "title": title,
+                    "title_uz": cat.get("title_uz") or bid,
+                    "title_ru": cat.get("title_ru") or "",
+                    "title_en": cat.get("title_en") or "",
+                    "image": catalog_image(cat),
+                    "shart": shart,
+                    "at": int(got.get(str(rank)) or 0),
+                }
+            )
+        return out
+
+    def _gmod_key(self, chat_id: int) -> str:
+        return f"mafia:gmod:{chat_id}"
+
+    async def group_penalty(self, chat_id: int, user_id: int) -> dict:
+        raw = await self.redis.hget(self._gmod_key(chat_id), str(user_id))
+        if not raw:
+            return {}
+        try:
+            data = json.loads(raw)
+        except (TypeError, ValueError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    async def _save_group_penalty(self, chat_id: int, user_id: int, data: dict) -> None:
+        key = self._gmod_key(chat_id)
+        if not data.get("mute") and not data.get("ban"):
+            await self.redis.hdel(key, str(user_id))
+            return
+        await self.redis.hset(key, mapping={str(user_id): json.dumps(data)})
+
+    async def set_admin_mute(self, chat_id: int, user_id: int, until_ts: int) -> None:
+        row = await self.group_penalty(chat_id, user_id)
+        row["mute"] = int(until_ts)
+        await self._save_group_penalty(chat_id, user_id, row)
+
+    async def clear_admin_mute(self, chat_id: int, user_id: int) -> None:
+        row = await self.group_penalty(chat_id, user_id)
+        row.pop("mute", None)
+        await self._save_group_penalty(chat_id, user_id, row)
+
+    async def set_admin_ban(self, chat_id: int, user_id: int, until_ts: int) -> None:
+        row = await self.group_penalty(chat_id, user_id)
+        row["ban"] = int(until_ts)
+        await self._save_group_penalty(chat_id, user_id, row)
+
+    async def clear_admin_ban(self, chat_id: int, user_id: int) -> None:
+        row = await self.group_penalty(chat_id, user_id)
+        row.pop("ban", None)
+        await self._save_group_penalty(chat_id, user_id, row)
+
+    async def admin_muted_ids(self, chat_id: int) -> set[int]:
+        now = _now()
+        raw = await self.redis.hgetall(self._gmod_key(chat_id))
+        out: set[int] = set()
+        for uid, blob in (raw or {}).items():
+            try:
+                data = json.loads(blob)
+            except (TypeError, ValueError):
+                continue
+            if int(data.get("mute") or 0) > now:
+                out.add(int(uid))
+        return out
+
+    async def is_admin_muted(self, chat_id: int, user_id: int) -> bool:
+        row = await self.group_penalty(chat_id, user_id)
+        return int(row.get("mute") or 0) > _now()
+
+    async def is_game_banned(self, chat_id: int, user_id: int) -> bool:
+        row = await self.group_penalty(chat_id, user_id)
+        return int(row.get("ban") or 0) > _now()

@@ -144,6 +144,12 @@ def register(app: FastAPI) -> None:
                     "profile_empty_inv": t("profile_empty_inv", lang),
                     "profile_badges": t("profile_badges", lang),
                     "profile_badges_empty": t("profile_badges_empty", lang),
+                    "profile_badge_shart": t("profile_badge_shart", lang),
+                    "profile_badge_when": t("profile_badge_when", lang),
+                    "empty_badges": t("market_empty_badges", lang),
+                    "confirm_badge": t(
+                        "market_confirm_badge", lang, title="{title}", r="{r}", n="{n}"
+                    ),
                     "topup_hint": t("topup_hint_kind", lang),
                     "topup": t("btn_topup", lang),
                     "swap": t("market_swap", lang),
@@ -168,10 +174,16 @@ def register(app: FastAPI) -> None:
                     "armed_documents": bool(stats.get("armed_documents")),
                     "armed_active": bool(stats.get("armed_active")),
                     "armed_chosen": bool(stats.get("armed_chosen")),
+                    "badges": (
+                        await st.owned_badges(who["id"], lang) if who else []
+                    ),
                 },
                 "shop": shop,
                 "gifts": gifts,
                 "packs": packs,
+                "badge_shop": await st.listed_shop_badges(
+                    who["id"] if who else 0, lang
+                ),
                 "swaps": [
                     {
                         "id": x.get("id"),
@@ -195,8 +207,12 @@ def register(app: FastAPI) -> None:
         if not who:
             return JSONResponse({"ok": False, "error": "auth"}, status_code=401)
         item_id = str((body or {}).get("id") or "")
-        pay = str((body or {}).get("pay") or "vcoin")
-        ok, reason, stats = await _store(request).buy_item(who["id"], item_id, pay)
+        kind = str((body or {}).get("kind") or "")
+        if kind == "badge":
+            ok, reason, stats = await _store(request).buy_badge(who["id"], item_id)
+        else:
+            pay = str((body or {}).get("pay") or "vcoin")
+            ok, reason, stats = await _store(request).buy_item(who["id"], item_id, pay)
         return JSONResponse(
             {
                 "ok": ok,

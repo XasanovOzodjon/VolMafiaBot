@@ -210,6 +210,8 @@ pip-selfcheck.json
 data/media/shop/*
 data/media/gifts/*
 data/media/swaps/*
+data/media/badges/*
 !data/media/shop/.gitkeep
 !data/media/gifts/.gitkeep
 !data/media/swaps/.gitkeep
+!data/media/badges/.gitkeep

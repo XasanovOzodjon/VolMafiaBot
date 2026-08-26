@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% set nav = "users" %}
+{% block body %}
+<p><a href="/users">← {{ t('nav_users') }}</a></p>
+<h1>{{ stats.name or uid }}</h1>
+<p>ID {{ uid }} {% if prof.username %}· @{{ prof.username }}{% endif %}
+  {% if banned %}<span class="badge">{{ t('banned') }}</span>{% endif %}
+  {% if staff %}<span class="badge">{{ staff }}</span>{% endif %}
+</p>
+<div class="grid">
+  <div class="card"><div class="k">{{ t('money') }}</div><div class="v">{{ stats.money }}</div></div>
+  <div class="card"><div class="k">{{ t('vcoin') }}</div><div class="v">{{ stats.vcoin }}</div></div>
+  <div class="card"><div class="k">{{ t('games') }}</div><div class="v">{{ stats.games }}</div></div>
+  <div class="card"><div class="k">{{ t('wins') }}</div><div class="v">{{ stats.wins }}</div></div>
+</div>
+<p>🛡️ {{ stats.protection }} · 📁 {{ stats.documents }} · 🎎 {{ stats.active_role }} · 🎭 {{ stats.chosen_role }}
+  {% if stats.chosen_pick %} ({{ stats.chosen_pick }}){% endif %}
+</p>
+{% if can('mutate') %}
+<div class="card">
+  <h2>{{ t('adjust') }}</h2>
+  <form method="post" action="/users/{{ uid }}/balance">
+    <div class="row">
+      <div><label>{{ t('money') }} ±</label><input name="money" type="number" value="0"></div>
+      <div><label>{{ t('vcoin') }} ±</label><input name="vcoin" type="number" value="0"></div>
+    </div>
+    <p><button>{{ t('save') }}</button></p>
+  </form>
+</div>
+{% endif %}
+{% if can('mutate') %}
+<div class="card">
+  <h2>{{ t('grant_badge') }}</h2>
+  {% if owned %}
+  <p>{% for o in owned %}<span class="owned-rank">{{ o.title }} x{{ o.rank }}</span> {% endfor %}</p>
+  {% endif %}
+  {% if catalog %}
+  <form method="post" action="/users/{{ uid }}/badge">
+    <div class="row">
+      <div>
+        <label>{{ t('nav_badges') }}</label>
+        <select name="badge_id">
+          {% for b in catalog %}
+          <option value="{{ b.id }}">{{ b.title_uz }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div><label>{{ t('rank') }}</label><input name="rank" type="number" min="1" value="1"></div>
+    </div>
+    <p><button>{{ t('save') }}</button></p>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+{% if can('staff') %}
+<p><a class="btn ghost" href="/economy?user={{ uid }}">{{ t('nav_econ') }}</a></p>
+{% endif %}
+{% if can('ban') %}
+<form method="post" action="/users/{{ uid }}/ban">
+  <input type="hidden" name="on" value="{{ 0 if banned else 1 }}">
+  <button class="{{ 'ghost' if banned else 'danger' }}">{{ t('unban') if banned else t('ban') }}</button>
+</form>
+{% endif %}
+{% endblock %}

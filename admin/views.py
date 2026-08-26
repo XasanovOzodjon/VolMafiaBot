@@ -48,7 +48,7 @@ def _keep_image(raw: str, kind: str) -> str:
 async def _save_catalog_image(kind: str, item_id: str, upload: UploadFile | None) -> str:
     if not upload or not (upload.filename or "").strip():
         return ""
-    if kind not in ("shop", "gifts", "swaps") or not SHOP_ID_RE.match(item_id):
+    if kind not in ("shop", "gifts", "swaps", "badges") or not SHOP_ID_RE.match(item_id):
         return ""
     name = (upload.filename or "").lower()
     ext = _IMG_EXT.get(Path(name).suffix)
@@ -62,6 +62,8 @@ async def _save_catalog_image(kind: str, item_id: str, upload: UploadFile | None
             "image/gif": ".gif",
         }.get(mime)
     if not ext:
+        return ""
+    if kind == "badges" and ext not in (".png", ".jpg"):
         return ""
     data = await upload.read()
     if not data or len(data) > 3 * 1024 * 1024:
@@ -554,6 +556,8 @@ def register(app: FastAPI) -> None:
         prof = await store.redis.hgetall(f"mafia:profile:{user_id}")
         banned = await store.is_user_banned(user_id)
         role = await store.staff_role(user_id)
+        catalog = [x for x in await store.ensure_badges() if x.get("enabled", True)]
+        owned = await store.owned_badges(user_id)
         return _html(
             request,
             "user.html",
@@ -563,6 +567,8 @@ def register(app: FastAPI) -> None:
             prof=prof or {},
             banned=banned,
             staff=role,
+            catalog=catalog,
+            owned=owned,
         )
 
     @app.post("/users/{user_id}/ban")
@@ -584,6 +590,20 @@ def register(app: FastAPI) -> None:
         vcoin = int(vcoin or gems or 0)
         await _store(request).adjust_balance(user_id, money=money, vcoin=vcoin)
         await _audit(request, "balance", user_id=user_id, money=money, vcoin=vcoin)
+        return RedirectResponse(f"/users/{user_id}?ok=saved", 303)
+
+    @app.post("/users/{user_id}/badge")
+    async def user_badge_grant(
+        request: Request,
+        user_id: int,
+        badge_id: str = Form(...),
+        rank: int = Form(1),
+    ):
+        await _need(request, "mutate")
+        ok, reason, _stats = await _store(request).grant_badge(user_id, badge_id, rank)
+        await _audit(request, "badge_grant", user_id=user_id, item=f"{badge_id}:{rank}")
+        if not ok:
+            return RedirectResponse(f"/users/{user_id}?err={reason}", 303)
         return RedirectResponse(f"/users/{user_id}?ok=saved", 303)
 
     def _ad_form_ctx(ad: dict) -> dict:
@@ -975,6 +995,60 @@ def register(app: FastAPI) -> None:
         await _store(request).delete_swap(swap_id)
         await _audit(request, "swap_del", item=swap_id)
         return RedirectResponse("/shop?ok=saved", 303)
+
+    @app.get("/badges", response_class=HTMLResponse)
+    async def badges_page(request: Request):
+        sess = await _need(request, "shop")
+        items = _with_images(await _store(request).ensure_badges())
+        return _html(request, "badges.html", sess, items=items)
+
+    @app.post("/badges")
+    async def badges_save(
+        request: Request,
+        badge_id: str = Form(...),
+        emoji: str = Form("🏅"),
+        title_uz: str = Form(...),
+        title_ru: str = Form(""),
+        title_en: str = Form(""),
+        enabled: str = Form(""),
+        ranks_json: str = Form("[]"),
+        keep_image: str = Form(""),
+        image: UploadFile | None = File(None),
+    ):
+        await _need(request, "shop")
+        badge_id = badge_id.strip().lower()
+        if not SHOP_ID_RE.match(badge_id):
+            return RedirectResponse("/badges?err=id", 303)
+        try:
+            ranks = json.loads(ranks_json or "[]")
+        except (TypeError, ValueError):
+            ranks = []
+        if not isinstance(ranks, list):
+            ranks = []
+        image_url = await _save_catalog_image("badges", badge_id, image)
+        if not image_url:
+            image_url = _keep_image(keep_image, "badges")
+        await _store(request).upsert_badge(
+            {
+                "id": badge_id,
+                "emoji": (emoji or "🏅")[:4],
+                "title_uz": title_uz.strip()[:40],
+                "title_ru": title_ru.strip()[:40],
+                "title_en": title_en.strip()[:40],
+                "enabled": enabled == "1",
+                "image": image_url,
+                "ranks": ranks,
+            }
+        )
+        await _audit(request, "badge_save", item=badge_id)
+        return RedirectResponse("/badges?ok=saved", 303)
+
+    @app.post("/badges/{badge_id}/delete")
+    async def badges_delete(request: Request, badge_id: str):
+        await _need(request, "shop")
+        await _store(request).delete_badge(badge_id)
+        await _audit(request, "badge_del", item=badge_id)
+        return RedirectResponse("/badges?ok=saved", 303)
 
     @app.get("/gifts", response_class=HTMLResponse)
     async def gifts_page(request: Request):

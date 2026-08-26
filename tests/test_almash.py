@@ -7,31 +7,7 @@ import pytest
 from services.admin_data import AdminData, DEFAULT_SWAPS
 
 
-class MemoryRedis:
-    def __init__(self) -> None:
-        self.kv: dict = {}
-        self.lists: dict = {}
-        self.zsets: dict = {}
-
-    async def get(self, key: str):
-        return self.kv.get(key)
-
-    async def set(self, key: str, value, **_kwargs):
-        self.kv[key] = value
-        return True
-
-    async def zadd(self, key: str, mapping: dict):
-        self.zsets.setdefault(key, {}).update(mapping)
-        return len(mapping)
-
-    async def lpush(self, key: str, value):
-        self.lists.setdefault(key, []).insert(0, value)
-        return len(self.lists[key])
-
-    async def ltrim(self, key: str, start: int, end: int):
-        items = self.lists.get(key, [])
-        self.lists[key] = items[start : end + 1]
-        return True
+from tests.fakes import MemoryRedis
 
 
 def store() -> AdminData:

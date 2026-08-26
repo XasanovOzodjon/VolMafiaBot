@@ -16,6 +16,7 @@ const state = {
   gifts: [],
   packs: [],
   swaps: [],
+  badgeShop: [],
   roles: [],
   page: "market",
 };
@@ -126,7 +127,7 @@ function tileHtml(item, kind) {
           ? item.vcoin + " Vcoin"
           : "")
   );
-  return `<button type="button" class="tile tilt" data-open="${esc(kind)}" data-id="${esc(item.id)}">
+  return `<button type="button" class="tile tilt${kind === "badge" ? " badge-tile" : ""}" data-open="${esc(kind)}" data-id="${esc(item.id)}">
     <span class="art${item.image ? "" : " no-img"}">${img}<span class="art-rings"></span><span class="emo">${emo}</span>${packCoin}</span>
     <span class="info">
       <span class="copy">
@@ -143,16 +144,30 @@ function closeSheet() {
   el.hidden = true;
   el.classList.remove("open");
   sheetItem = null;
+  const buy = $("sheet-buy");
+  if (buy) buy.hidden = false;
 }
 
 function openSheet(kind, id) {
   const list =
-    kind === "gift" ? state.gifts : kind === "stars" ? state.packs : kind === "swap" ? state.swaps : state.shop;
+    kind === "gift"
+      ? state.gifts
+      : kind === "stars"
+        ? state.packs
+        : kind === "swap"
+          ? state.swaps
+          : kind === "badge"
+            ? state.badgeShop
+            : kind === "badge-info"
+              ? state.stats.badges || []
+              : state.shop;
   const item = list.find((x) => String(x.id) === String(id));
   if (!item) return;
   sheetItem = { kind, item };
   haptic("tap");
   const isMoney = kind === "stars" && (item.kind || "vcoin") === "money";
+  const buyBtn = $("sheet-buy");
+  buyBtn.hidden = kind === "badge-info";
   $("sheet-img").src = item.image || "";
   $("sheet-img").style.display = item.image ? "block" : "none";
   $("sheet-emo").textContent =
@@ -164,16 +179,33 @@ function openSheet(kind, id) {
       : isMoney
         ? `${item.money || 0} $`
         : `${item.vcoin || 0} Vcoin`);
-  $("sheet-desc").textContent =
-    item.desc ||
-    (kind === "swap"
-      ? tx("confirm_swap").replace("{v}", String(item.vcoin || 0)).replace("{m}", String(item.money || 0))
-      : kind === "stars"
-        ? "Telegram Stars"
-        : "");
-  $("sheet-price").textContent = priceLabel(item, kind);
-  $("sheet-buy").textContent =
-    kind === "swap" ? tx("swap", "Almashtirish") : kind === "stars" ? "⭐ " + (item.stars || 0) : tx("add", "Qo'shish");
+  let desc = item.desc || "";
+  if (kind === "swap") {
+    desc = tx("confirm_swap").replace("{v}", String(item.vcoin || 0)).replace("{m}", String(item.money || 0));
+  } else if (kind === "stars") {
+    desc = "Telegram Stars";
+  } else if (kind === "badge" || kind === "badge-info") {
+    const bits = [];
+    if (item.shart || item.desc) bits.push(`${tx("profile_badge_shart", "Shart")}: ${item.shart || item.desc}`);
+    if (kind === "badge-info" && item.at) {
+      bits.push(
+        `${tx("profile_badge_when", "Olingan")}: ${new Date(item.at * 1000).toLocaleDateString()}`
+      );
+    }
+    if (item.rank) bits.push(`Rank x${item.rank}`);
+    desc = bits.join("\n");
+  }
+  $("sheet-desc").textContent = desc;
+  $("sheet-price").textContent =
+    kind === "badge-info" ? (item.rank > 1 ? "Rank x" + item.rank : "") : priceLabel(item, kind === "badge" ? "gift" : kind);
+  buyBtn.textContent =
+    kind === "badge"
+      ? tx("buy", "Sotib olish")
+      : kind === "swap"
+        ? tx("swap", "Almashtirish")
+        : kind === "stars"
+          ? "⭐ " + (item.stars || 0)
+          : tx("add", "Qo'shish");
   $("sheet").hidden = false;
   $("sheet").classList.add("open");
 }
@@ -245,7 +277,7 @@ function renderProfile() {
             ? `<img src="${esc(b.image)}" alt="">`
             : `<span class="emo">${esc(b.emoji || "🏅")}</span>`;
           return `<button type="button" class="badge-card" data-badge="${esc(b.id || "")}">
-            <span class="badge-disc">${img}${rank > 1 ? `<span class="rank">x${esc(rank)}</span>` : ""}</span>
+            <span class="badge-disc">${img}<span class="rank">x${esc(rank)}</span></span>
             <b>${esc(b.title || "")}</b>
           </button>`;
         })
@@ -332,7 +364,23 @@ function render() {
     (uses.length ? `<div class="row" style="margin-bottom:12px;grid-column:1/-1">${uses.join("")}</div>` : "") +
     (state.shop.length
       ? state.shop.map((g) => tileHtml(g, "shop")).join("")
-      : `<p class="empty">${esc(tx("empty_shop"))}</p>`);
+      : `<p class="empty">${esc(tx("empty_shop"))}</p>`) +
+    (state.badgeShop.length
+      ? `<p class="hint" style="grid-column:1/-1">${esc(tx("profile_badges", "Badge"))}</p>` +
+        state.badgeShop
+          .map((b) =>
+            tileHtml(
+              {
+                ...b,
+                title: `${b.title || b.id} · Rank ${b.rank || 1}`,
+                emoji: b.emoji || "🏅",
+                desc: b.desc || "",
+              },
+              "badge"
+            )
+          )
+          .join("")
+      : "");
 
   $("tab-swap").innerHTML =
     `<p class="hint" style="grid-column:1/-1">${esc(tx("swap_hint"))}</p>` + swapTiles();
@@ -354,6 +402,7 @@ async function load() {
   state.gifts = data.gifts || [];
   state.packs = data.packs || [];
   state.swaps = data.swaps || [];
+  state.badgeShop = data.badge_shop || [];
   state.roles = data.roles || [];
   render();
   if (data.guest) {
@@ -395,6 +444,24 @@ async function buySheet() {
       closeSheet();
       await load();
     }
+    return;
+  }
+  if (kind === "badge") {
+    const text = tx("confirm_badge")
+      .replace("{title}", item.title || "")
+      .replace("{r}", String(item.rank || 1))
+      .replace("{n}", String(item.vcoin || 0));
+    const yes = await askConfirm(text);
+    if (!yes) return;
+    const data = await api("/api/market/buy", { id: item.id, kind: "badge" });
+    show(data.ok ? tx("bought") : data.reason === "broke" ? tx("broke") : tx("error"), data.ok);
+    if (data.ok) {
+      closeSheet();
+      await load();
+    }
+    return;
+  }
+  if (kind === "badge-info") {
     return;
   }
   if (kind === "shop") {
@@ -478,6 +545,12 @@ document.body.addEventListener("click", async (e) => {
   if (open) {
     e.preventDefault();
     openSheet(open.dataset.open, open.dataset.id);
+    return;
+  }
+  const badge = e.target.closest("[data-badge]");
+  if (badge && badge.dataset.badge) {
+    e.preventDefault();
+    openSheet("badge-info", badge.dataset.badge);
     return;
   }
   const btn = e.target.closest("button");

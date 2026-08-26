@@ -42,6 +42,7 @@ def create_panel(application) -> FastAPI:
     (media / "shop").mkdir(parents=True, exist_ok=True)
     (media / "gifts").mkdir(parents=True, exist_ok=True)
     (media / "swaps").mkdir(parents=True, exist_ok=True)
+    (media / "badges").mkdir(parents=True, exist_ok=True)
     app.mount("/media", StaticFiles(directory=str(media)), name="media")
     app.state.tg = application
     app.state.templates = templates
