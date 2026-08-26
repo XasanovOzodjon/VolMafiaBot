@@ -177,10 +177,9 @@ def register(app: FastAPI) -> None:
                         "id": x.get("id"),
                         "vcoin": int(x.get("vcoin") or 0),
                         "money": int(x.get("money") or 0),
-                        "image": catalog_image({**x, "kind": "money"}, pack=True),
+                        "image": catalog_image({**x, "kind": "swap"}, pack=True),
                     }
-                    for x in await st.ensure_swaps()
-                    if x.get("enabled", True)
+                    for x in await st.listed_swaps()
                 ],
                 "roles": [
                     {"id": r.value, "title": t(f"role_{r.value}", lang)}

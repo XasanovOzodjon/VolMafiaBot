@@ -207,3 +207,9 @@ pip-selfcheck.json
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode,venv
 
 .env
+data/media/shop/*
+data/media/gifts/*
+data/media/swaps/*
+!data/media/shop/.gitkeep
+!data/media/gifts/.gitkeep
+!data/media/swaps/.gitkeep

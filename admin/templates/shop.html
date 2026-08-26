@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% set nav = "shop" %}
+{% block body %}
+<div class="catalog-head">
+  <div>
+    <p class="kicker">VOL MARKET</p>
+    <h1>{{ t('nav_shop') }}</h1>
+  </div>
+  <button type="button" class="btn" id="shop-add">+ {{ t('add') }}</button>
+</div>
+<div class="catalog">
+  {% for it in items %}
+  <article class="product" data-open="shop" data-id="{{ it.id }}">
+    <div class="product-art">
+      <img src="{{ it.image }}" alt="" onerror="this.style.display='none'">
+      <span class="product-emo">{{ it.emoji }}</span>
+      {% if not it.enabled %}<span class="badge product-off">off</span>{% endif %}
+    </div>
+    <div class="product-body">
+      <h3>{{ it.title_uz }}</h3>
+      <p>{{ it.desc_uz }}</p>
+      <div class="product-price">
+        {% if it.money %}💵 {{ it.money }}{% endif %}
+        {% if it.vcoin %}🪙 {{ it.vcoin }}{% endif %}
+      </div>
+      <div class="product-acts">
+        <button type="button" class="ghost" data-open="shop" data-id="{{ it.id }}">{{ t('edit') }}</button>
+        <form method="post" action="/shop/{{ it.id }}/delete" onsubmit="return confirm('?')">
+          <button class="ghost">{{ t('delete') }}</button>
+        </form>
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+
+<div class="catalog-head" style="margin-top:36px">
+  <div>
+    <p class="kicker">STARS</p>
+    <h2>To'ldirish</h2>
+  </div>
+  <button type="button" class="btn" id="pack-add">+ {{ t('add') }}</button>
+</div>
+<div class="catalog catalog-sm">
+  {% for p in packs %}
+  <article class="product" data-open="pack" data-id="{{ p.id }}">
+    <div class="product-art">
+      <img src="{{ p.image }}" alt="" onerror="this.style.display='none'">
+      {% if not p.enabled %}<span class="badge product-off">off</span>{% endif %}
+    </div>
+    <div class="product-body">
+      <h3>
+        {% if p.kind == 'money' %}💵 {{ p.money }}${% else %}{{ p.vcoin }} Vcoin{% endif %}
+      </h3>
+      <div class="product-price">⭐ {{ p.stars }}</div>
+      <div class="product-acts">
+        <button type="button" class="ghost" data-open="pack" data-id="{{ p.id }}">{{ t('edit') }}</button>
+        <form method="post" action="/shop/packs/{{ p.id }}/delete" onsubmit="return confirm('?')">
+          <button class="ghost">{{ t('delete') }}</button>
+        </form>
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+
+<div class="catalog-head" style="margin-top:36px">
+  <div>
+    <p class="kicker">ALMASH</p>
+    <h2>{{ t('almash') }}</h2>
+  </div>
+  <button type="button" class="btn" id="swap-add">+ {{ t('add') }}</button>
+</div>
+<div class="catalog catalog-sm">
+  {% for p in swaps %}
+  <article class="product" data-open="swap" data-id="{{ p.id }}">
+    <div class="product-art">
+      <img src="{{ p.image }}" alt="" onerror="this.style.display='none'">
+      {% if not p.enabled %}<span class="badge product-off">off</span>{% endif %}
+    </div>
+    <div class="product-body">
+      <h3>🪙 {{ p.vcoin }} → 💵 {{ p.money }}$</h3>
+      <div class="product-price">🪙 {{ p.vcoin }}</div>
+      <div class="product-acts">
+        <button type="button" class="ghost" data-open="swap" data-id="{{ p.id }}">{{ t('edit') }}</button>
+        <form method="post" action="/shop/swaps/{{ p.id }}/delete" onsubmit="return confirm('?')">
+          <button class="ghost">{{ t('delete') }}</button>
+        </form>
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% endblock %}
+{% block extra %}
+<div class="modal" id="shop-modal" hidden>
+  <div class="modal-back" data-close></div>
+  <form id="shop-form" class="modal-panel" method="post" action="/shop/save" enctype="multipart/form-data">
+    <button type="button" class="modal-x" data-close aria-label="{{ t('cancel') }}">×</button>
+    <h2 id="shop-modal-title">{{ t('add') }}</h2>
+    <label class="drop">
+      <img id="shop-preview" alt="">
+      <span id="shop-preview-emo">🛡️</span>
+      <input type="file" name="image" id="shop-image" accept="image/png,image/jpeg,image/webp,image/gif">
+      <em>{{ t('image') }}</em>
+    </label>
+    <input type="hidden" name="keep_image" id="shop-keep">
+    <div class="row">
+      <div><label>{{ t('shop_id') }}</label><input name="item_id" id="shop-id" required></div>
+      <div><label>{{ t('emoji') }}</label><input name="emoji" id="shop-emoji" value="🛡️"></div>
+    </div>
+    <div class="row">
+      <div><label>UZ</label><input name="title_uz" id="shop-title-uz" required></div>
+      <div><label>RU</label><input name="title_ru" id="shop-title-ru" required></div>
+    </div>
+    <label>UZ desc</label><input name="desc_uz" id="shop-desc-uz">
+    <label>RU desc</label><input name="desc_ru" id="shop-desc-ru">
+    <div class="row">
+      <div>
+        <label>{{ t('field') }}</label>
+        <select name="field" id="shop-field">
+          <option value="protection">protection ($)</option>
+          <option value="documents">documents ($)</option>
+          <option value="active_role">active_role (Vcoin)</option>
+          <option value="chosen_role">chosen_role (Vcoin)</option>
+        </select>
+      </div>
+      <div><label>{{ t('amount') }}</label><input type="number" name="amount" id="shop-amount" value="1"></div>
+    </div>
+    <div class="row">
+      <div><label>{{ t('money') }}</label><input type="number" name="money" id="shop-money" value="0"></div>
+      <div><label>{{ t('vcoin') }}</label><input type="number" name="vcoin" id="shop-vcoin" value="0"></div>
+    </div>
+    <label class="check"><input type="checkbox" name="enabled" id="shop-enabled" value="1" checked> {{ t('enabled') }}</label>
+    <p class="modal-acts">
+      <button type="button" class="ghost" data-close>{{ t('cancel') }}</button>
+      <button>{{ t('save') }}</button>
+    </p>
+  </form>
+</div>
+<div class="modal" id="pack-modal" hidden>
+  <div class="modal-back" data-close></div>
+  <form id="pack-form" class="modal-panel" method="post" action="/shop/packs">
+    <button type="button" class="modal-x" data-close>×</button>
+    <h2 id="pack-modal-title">⭐ {{ t('add') }}</h2>
+    <div class="drop pack-art"><img src="/static/shop/vcoin.jpg" alt="" id="pack-art-img"></div>
+    <div class="row">
+      <div><label>ID</label><input name="pack_id" id="pack-id" required></div>
+      <div>
+        <label>Tur</label>
+        <select name="kind" id="pack-kind">
+          <option value="vcoin">Vcoin</option>
+          <option value="money">$</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div><label>{{ t('amount') }}</label><input type="number" name="amount" id="pack-amount" value="50"></div>
+      <div><label>{{ t('stars') }}</label><input type="number" name="stars" id="pack-stars" value="50"></div>
+    </div>
+    <label class="check"><input type="checkbox" name="enabled" id="pack-enabled" value="1" checked> {{ t('enabled') }}</label>
+    <p class="modal-acts">
+      <button type="button" class="ghost" data-close>{{ t('cancel') }}</button>
+      <button>{{ t('save') }}</button>
+    </p>
+  </form>
+</div>
+<div class="modal" id="swap-modal" hidden>
+  <div class="modal-back" data-close></div>
+  <form id="swap-form" class="modal-panel" method="post" action="/shop/swaps" enctype="multipart/form-data">
+    <button type="button" class="modal-x" data-close>×</button>
+    <h2 id="swap-modal-title">{{ t('almash') }}</h2>
+    <label class="drop">
+      <img id="swap-preview" alt="">
+      <span id="swap-preview-emo">💵</span>
+      <input type="file" name="image" id="swap-image" accept="image/png,image/jpeg,image/webp,image/gif">
+      <em>{{ t('image') }}</em>
+    </label>
+    <input type="hidden" name="keep_image" id="swap-keep">
+    <div class="row">
+      <div><label>ID</label><input name="swap_id" id="swap-id" required></div>
+    </div>
+    <div class="row">
+      <div><label>{{ t('vcoin') }}</label><input type="number" name="vcoin" id="swap-vcoin" value="50" min="0"></div>
+      <div><label>$</label><input type="number" name="money" id="swap-money" value="50" min="0"></div>
+    </div>
+    <label class="check"><input type="checkbox" name="enabled" id="swap-enabled" value="1" checked> {{ t('enabled') }}</label>
+    <p class="modal-acts">
+      <button type="button" class="ghost" data-close>{{ t('cancel') }}</button>
+      <button>{{ t('save') }}</button>
+    </p>
+  </form>
+</div>
+<script type="application/json" id="shop-items">{{ items|tojson }}</script>
+<script type="application/json" id="pack-items">{{ packs|tojson }}</script>
+<script type="application/json" id="swap-items">{{ swaps|tojson }}</script>
+<script src="/static/shop.js?v=4"></script>
+{% endblock %}
