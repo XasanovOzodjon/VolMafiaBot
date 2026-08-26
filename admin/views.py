@@ -774,10 +774,15 @@ def register(app: FastAPI) -> None:
         store = _store(request)
         ad = await store.get_ad(ad_id)
         dump = _dump_chat(sess)
-        if ad and dump:
-            await send_ad_to(_tg(request).bot, dump, ad, store=store)
-            ad["previewed"] = True
-            await store.save_ad(ad)
+        if not ad:
+            return RedirectResponse("/ads?err=missing", 303)
+        if not dump:
+            return RedirectResponse(f"/ads/{ad_id}/preview?err=ad_fail", 303)
+        sent = await send_ad_to(_tg(request).bot, dump, ad, store=store)
+        if not sent:
+            return RedirectResponse(f"/ads/{ad_id}/preview?err=ad_fail", 303)
+        ad["previewed"] = True
+        await store.save_ad(ad)
         return RedirectResponse(f"/ads/{ad_id}/preview?ok=test", 303)
 
     @app.post("/ads/{ad_id}/send")
