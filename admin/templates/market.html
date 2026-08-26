@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>VolMafia</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;800&family=Outfit:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="/static/market.css?v=11">
+</head>
+<body>
+  <div class="scene" aria-hidden="true">
+    <div class="scene-orb scene-orb-a"></div>
+    <div class="scene-orb scene-orb-b"></div>
+    <div class="scene-ring"></div>
+  </div>
+  <div class="glow" aria-hidden="true"></div>
+  <header class="top">
+    <div>
+      <p class="kicker">VOL MAFIA</p>
+      <h1 id="title">Do'kon</h1>
+    </div>
+    <div class="wallet">
+      <span id="money">💵 0</span>
+      <span id="vcoin">🪙 0</span>
+    </div>
+  </header>
+  <nav class="tabs" id="nav-market">
+    <button class="on" data-tab="gifts" id="tabbtn-gifts">🎁</button>
+    <button data-tab="boosts" id="tabbtn-boosts">🎎</button>
+    <button data-tab="swap" id="tabbtn-swap">💵</button>
+  </nav>
+  <main id="view-market">
+    <section id="tab-gifts" class="grid"></section>
+    <section id="tab-boosts" class="grid hidden"></section>
+    <section id="tab-swap" class="grid hidden"></section>
+  </main>
+  <section id="view-profile" class="page hidden"></section>
+  <section id="view-topup" class="page hidden">
+    <p class="hint" id="topup-pick"></p>
+    <div class="pay-list">
+      <button type="button" class="pay-card tilt" data-pay="vcoin">
+        <span class="coin-sway" aria-hidden="true">🪙</span>
+        <strong id="pay-vcoin-title">🪙 Vcoin</strong>
+        <span id="pay-vcoin-desc"></span>
+      </button>
+      <button type="button" class="pay-card tilt" data-pay="money">
+        <span class="coin-sway coin-cash" aria-hidden="true">💵</span>
+        <strong id="pay-money-title">💵 $</strong>
+        <span id="pay-money-desc"></span>
+      </button>
+    </div>
+    <p class="hint" id="topup-hint"></p>
+    <div id="topup-packs" class="grid hidden"></div>
+  </section>
+  <p id="msg" class="msg" hidden></p>
+  <div id="sheet" class="sheet" hidden>
+    <div class="sheet-back" id="sheet-back"></div>
+    <article class="sheet-card">
+      <button type="button" class="sheet-x" id="sheet-close">×</button>
+      <div class="sheet-hero">
+        <img id="sheet-img" alt="">
+        <span id="sheet-emo"></span>
+      </div>
+      <div class="sheet-body">
+        <h2 id="sheet-title"></h2>
+        <p id="sheet-desc"></p>
+        <p class="price" id="sheet-price"></p>
+        <button type="button" class="buy" id="sheet-buy">Qo'shish</button>
+      </div>
+    </article>
+  </div>
+  <script src="/static/market.js?v=11"></script>
+</body>
+</html>
