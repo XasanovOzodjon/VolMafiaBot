@@ -766,3 +766,59 @@ body.brick-dragging .brick { cursor: grabbing; }
 .check { display: flex; gap: 8px; align-items: center; color: var(--text); }
 .check input { width: auto; }
 .modal-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.modal-panel.badge-wide { width: min(720px, 100%); }
+.user-hero { margin-bottom: 8px; }
+.user-acts { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+.inv-line { color: var(--mute); }
+.owned-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.owned-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 10px 6px 6px; border-radius: 999px;
+  border: 1px solid var(--line); background: rgba(8, 16, 28, .55);
+}
+.owned-chip img {
+  width: 28px; height: 28px; border-radius: 50%; object-fit: cover;
+}
+.owned-chip b { font-size: .85rem; }
+.owned-chip em { color: var(--cyan); font-style: normal; font-size: .75rem; }
+.op-pills { display: flex; gap: 8px; margin: 0 0 14px; }
+.pill {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px; border-radius: 14px; border: 1px solid var(--line); cursor: pointer;
+}
+.pill:has(input:checked) {
+  border-color: var(--cyan); background: rgba(42, 171, 238, .14); color: var(--cyan);
+}
+.pill input { width: auto; }
+textarea {
+  width: 100%; min-height: 72px; resize: vertical;
+  background: #081018; color: var(--text); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 12px; font: inherit;
+}
+.grant-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 10px; margin: 8px 0 12px;
+}
+.grant-card {
+  display: grid; gap: 6px; text-align: left;
+  padding: 10px; border-radius: 18px; border: 1px solid var(--line);
+  background: rgba(8, 16, 28, .6); color: var(--text); cursor: pointer;
+  box-shadow: none;
+}
+.grant-card:hover { border-color: var(--cyan); }
+.grant-art {
+  position: relative; aspect-ratio: 1; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 30% 20%, rgba(42,171,238,.28), #081018 60%);
+  display: grid; place-items: center;
+}
+.grant-art img { width: 100%; height: 100%; object-fit: cover; }
+.grant-art em { font-style: normal; font-size: 1.6rem; }
+.grant-card strong { font-size: .85rem; }
+.grant-card small { color: var(--mute); }
+.grant-picked { font-weight: 700; margin: 0 0 10px; }
+.rank-picks { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+.rank-pick {
+  width: 44px; height: 44px; border-radius: 14px; padding: 0;
+  background: #102033; color: var(--text); box-shadow: none;
+}
+.rank-pick.on { background: var(--blue); color: #fff; }

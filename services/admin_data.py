@@ -63,6 +63,7 @@ DEFAULT_SHOP: list[dict[str, Any]] = [
 ]
 
 SHOP_FIELDS = ("protection", "documents", "active_role", "chosen_role")
+SHART_KINDS = ("play", "win", "lose", "buy", "toldirish", "groups")
 ARM_FLAGS = {
     "protection": "armed_protection",
     "documents": "armed_documents",
@@ -148,6 +149,28 @@ DEFAULT_GIFTS: list[dict[str, Any]] = [
 
 ROLES = ("super", "moderator", "ads")
 _IMG_ID_RE = re.compile(r"^[a-z0-9_]{2,20}$")
+
+
+def resolve_catalog_id(raw: str, existing, prefix: str = "x") -> str:
+    raw = (raw or "").strip().lower()
+    if _IMG_ID_RE.match(raw):
+        return raw
+    return new_catalog_id(existing, prefix)
+
+
+def new_catalog_id(existing, prefix: str = "x") -> str:
+    taken = set()
+    for row in existing or []:
+        if isinstance(row, dict):
+            taken.add(str(row.get("id") or ""))
+        else:
+            taken.add(str(row))
+    prefix = re.sub(r"[^a-z0-9]", "", (prefix or "x").lower())[:4] or "x"
+    for _ in range(48):
+        nid = prefix + secrets.token_hex(4)
+        if _IMG_ID_RE.match(nid) and nid not in taken:
+            return nid
+    raise RuntimeError("catalog id")
 
 
 def catalog_image(item: dict | None = None, *, pack: bool = False) -> str:
@@ -244,6 +267,15 @@ def _badge_ranks(raw) -> list[dict]:
         shart = str(item.get("shart_uz") or item.get("shart") or "").strip()
         if rank < 1 or not shart:
             continue
+        kind = str(item.get("kind") or "").strip().lower()
+        if kind not in SHART_KINDS:
+            kind = ""
+        currency = str(item.get("currency") or "").strip().lower()
+        if currency not in ("money", "vcoin"):
+            currency = "vcoin"
+        field = str(item.get("item") or "").strip()
+        if field not in SHOP_FIELDS:
+            field = ""
         rows.append(
             {
                 "rank": rank,
@@ -251,8 +283,12 @@ def _badge_ranks(raw) -> list[dict]:
                 "shart_ru": str(item.get("shart_ru") or "")[:200],
                 "shart_en": str(item.get("shart_en") or "")[:200],
                 "vcoin_cost": cost,
-                "reward_vcoin": max(0, int(item.get("reward_vcoin") or 0)),
-                "reward_money": max(0, int(item.get("reward_money") or 0)),
+                "kind": kind,
+                "n": max(0, int(item.get("n") or 0)),
+                "role": str(item.get("role") or "").strip()[:40],
+                "item": field,
+                "currency": currency,
+                "groups": max(0, int(item.get("groups") or 0)),
             }
         )
     rows.sort(key=lambda x: x["rank"])
@@ -616,17 +652,21 @@ class AdminData:
         money = int(money or 0)
         vcoin = int(vcoin or 0)
         stats = await self.get_stats(user_id)
+        applied_money = 0
+        applied_vcoin = 0
         if money:
-            stats["money"] = max(0, stats["money"] + money)
+            applied_money = money if money > 0 else max(money, -int(stats["money"]))
+            stats["money"] = int(stats["money"]) + applied_money
         if vcoin:
-            stats["vcoin"] = max(0, stats["vcoin"] + vcoin)
+            applied_vcoin = vcoin if vcoin > 0 else max(vcoin, -int(stats["vcoin"]))
+            stats["vcoin"] = int(stats["vcoin"]) + applied_vcoin
         stats = await self.save_stats(user_id, stats)
-        if money or vcoin:
+        if applied_money or applied_vcoin:
             await self.add_econ_log(
                 user_id,
                 kind="admin_grant",
-                money=money or None,
-                vcoin=vcoin or None,
+                money=applied_money or None,
+                vcoin=applied_vcoin or None,
                 detail=reason,
             )
         return stats
@@ -641,6 +681,9 @@ class AdminData:
         await self.add_econ_log(
             user_id, kind=kind, vcoin=amount, detail=detail
         )
+        if str(kind) == "stars" and amount > 0:
+            await self._bump_stars(user_id, vcoin=amount)
+            await self.evaluate_auto_shart(user_id)
         return stats
 
     async def credit_money(
@@ -653,6 +696,9 @@ class AdminData:
         await self.add_econ_log(
             user_id, kind=kind, money=amount, detail=detail
         )
+        if str(kind) == "stars" and amount > 0:
+            await self._bump_stars(user_id, money=amount)
+            await self.evaluate_auto_shart(user_id)
         return stats
 
     async def maintenance(self) -> bool:
@@ -741,7 +787,10 @@ class AdminData:
             item=item_id,
             pay=wallet,
         )
-        return True, "ok", stats
+        if field in SHOP_FIELDS:
+            await self._bump_buy(user_id, field)
+            await self.evaluate_auto_shart(user_id)
+        return True, "ok", await self.get_stats(user_id)
 
     async def arm_shop_item(
         self, user_id: int, field: str
@@ -1368,6 +1417,142 @@ class AdminData:
             f"mafia:user:badges:{user_id}", json.dumps(data, ensure_ascii=False)
         )
 
+    async def _shart_progress(self, user_id: int) -> dict:
+        raw = await self.redis.get(f"mafia:shart:{user_id}")
+        data: dict = {}
+        if raw:
+            try:
+                loaded = json.loads(raw)
+                if isinstance(loaded, dict):
+                    data = loaded
+            except (TypeError, ValueError):
+                data = {}
+        data.setdefault("stars_money", 0)
+        data.setdefault("stars_vcoin", 0)
+        data.setdefault("buy", {})
+        data.setdefault("roles", {})
+        data.setdefault("chats", {})
+        if not isinstance(data["buy"], dict):
+            data["buy"] = {}
+        if not isinstance(data["roles"], dict):
+            data["roles"] = {}
+        if not isinstance(data["chats"], dict):
+            data["chats"] = {}
+        return data
+
+    async def _save_shart_progress(self, user_id: int, data: dict) -> None:
+        await self.redis.set(
+            f"mafia:shart:{user_id}", json.dumps(data, ensure_ascii=False)
+        )
+
+    async def _bump_stars(self, user_id: int, *, money: int = 0, vcoin: int = 0) -> None:
+        data = await self._shart_progress(user_id)
+        data["stars_money"] = int(data.get("stars_money") or 0) + max(0, int(money))
+        data["stars_vcoin"] = int(data.get("stars_vcoin") or 0) + max(0, int(vcoin))
+        await self._save_shart_progress(user_id, data)
+
+    async def _bump_buy(self, user_id: int, field: str) -> None:
+        if field not in SHOP_FIELDS:
+            return
+        data = await self._shart_progress(user_id)
+        buy = dict(data.get("buy") or {})
+        buy[field] = int(buy.get(field) or 0) + 1
+        data["buy"] = buy
+        await self._save_shart_progress(user_id, data)
+
+    async def _bump_play(
+        self,
+        user_id: int,
+        *,
+        won: bool,
+        chat_id: int | None = None,
+        role: str | None = None,
+    ) -> None:
+        data = await self._shart_progress(user_id)
+        code = str(role or "").strip()
+        if code:
+            roles = dict(data.get("roles") or {})
+            row = dict(roles.get(code) or {})
+            row["games"] = int(row.get("games") or 0) + 1
+            if won:
+                row["wins"] = int(row.get("wins") or 0) + 1
+            else:
+                row.setdefault("wins", int(row.get("wins") or 0))
+            roles[code] = row
+            data["roles"] = roles
+        if chat_id is not None:
+            chats = dict(data.get("chats") or {})
+            key = str(int(chat_id))
+            chats[key] = int(chats.get(key) or 0) + 1
+            data["chats"] = chats
+        await self._save_shart_progress(user_id, data)
+
+    def _shart_met(self, stats: dict, progress: dict, row: dict) -> bool:
+        kind = str(row.get("kind") or "")
+        n = int(row.get("n") or 0)
+        if kind not in SHART_KINDS:
+            return False
+        if kind == "groups":
+            if n < 1 or int(row.get("groups") or 0) < 1:
+                return False
+        elif n < 1:
+            return False
+        role = str(row.get("role") or "").strip()
+        if kind == "play":
+            if role:
+                return int((progress.get("roles") or {}).get(role, {}).get("games") or 0) >= n
+            return int(stats.get("games") or 0) >= n
+        if kind == "win":
+            if role:
+                return int((progress.get("roles") or {}).get(role, {}).get("wins") or 0) >= n
+            return int(stats.get("wins") or 0) >= n
+        if kind == "lose":
+            if role:
+                r = (progress.get("roles") or {}).get(role) or {}
+                return int(r.get("games") or 0) - int(r.get("wins") or 0) >= n
+            return int(stats.get("games") or 0) - int(stats.get("wins") or 0) >= n
+        if kind == "buy":
+            item = str(row.get("item") or "")
+            if item not in SHOP_FIELDS:
+                return False
+            return int((progress.get("buy") or {}).get(item) or 0) >= n
+        if kind == "toldirish":
+            key = "stars_money" if str(row.get("currency") or "") == "money" else "stars_vcoin"
+            return int(progress.get(key) or 0) >= n
+        if kind == "groups":
+            need = int(row.get("groups") or 0)
+            chats = progress.get("chats") or {}
+            hit = sum(1 for v in chats.values() if int(v or 0) >= n)
+            return hit >= need
+        return False
+
+    async def evaluate_auto_shart(self, user_id: int) -> None:
+        stats = await self.get_stats(user_id)
+        progress = await self._shart_progress(user_id)
+        for cat in await self.ensure_badges():
+            if not cat.get("enabled", True):
+                continue
+            bid = str(cat.get("id") or "")
+            if not bid:
+                continue
+            owned = await self.user_badge(user_id, bid)
+            have = int(owned["rank"]) if owned else 0
+            rows = sorted(
+                [r for r in (cat.get("ranks") or []) if isinstance(r, dict)],
+                key=lambda r: int(r.get("rank") or 0),
+            )
+            while True:
+                nxt = next(
+                    (r for r in rows if int(r.get("rank") or 0) == have + 1),
+                    None,
+                )
+                if not nxt or not str(nxt.get("kind") or ""):
+                    break
+                if not self._shart_met(stats, progress, nxt):
+                    break
+                await self._set_badge_rank(user_id, bid, have + 1)
+                have += 1
+
     async def user_badge(self, user_id: int, badge_id: str) -> Optional[dict]:
         row = self._badge_map_row(await self._badge_map(user_id), badge_id)
         return row
@@ -1384,10 +1569,14 @@ class AdminData:
         data = await self._badge_map(user_id)
         row = dict(data.get(badge_id) or {})
         got = dict(row.get("got") or {})
-        key = str(int(rank))
-        if key not in got:
-            got[key] = _now()
-        row["rank"] = int(rank)
+        have = int(row.get("rank") or 0)
+        target = max(have, int(rank))
+        now = _now()
+        for step in range(1, target + 1):
+            key = str(step)
+            if key not in got:
+                got[key] = now
+        row["rank"] = target
         row["got"] = got
         data[badge_id] = row
         await self._save_badge_map(user_id, data)
@@ -1458,7 +1647,7 @@ class AdminData:
         if ranks and rank not in ranks:
             return False, "missing", stats
         await self._set_badge_rank(user_id, badge_id, rank)
-        return True, "ok", stats
+        return True, "ok", await self.get_stats(user_id)
 
     async def owned_badges(self, user_id: int, lang: str = "uz") -> list[dict]:
         catalog = {

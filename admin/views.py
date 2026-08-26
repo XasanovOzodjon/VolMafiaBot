@@ -35,6 +35,12 @@ MEDIA_ROOT = Path(__file__).resolve().parent.parent / "data" / "media"
 _IMG_EXT = {".png": ".png", ".jpg": ".jpg", ".jpeg": ".jpg", ".webp": ".webp", ".gif": ".gif"}
 
 
+def _item_id(raw: str, existing: list, prefix: str) -> str:
+    from services.admin_data import resolve_catalog_id
+
+    return resolve_catalog_id(raw, existing, prefix)
+
+
 def _keep_image(raw: str, kind: str) -> str:
     s = (raw or "").strip().split("?", 1)[0]
     if not s or ".." in s or " " in s:
@@ -585,11 +591,41 @@ def register(app: FastAPI) -> None:
         money: int = Form(0),
         vcoin: int = Form(0),
         gems: int = Form(0),
+        op: str = Form("add"),
+        sabab: str = Form(""),
     ):
         await _need(request, "mutate")
         vcoin = int(vcoin or gems or 0)
-        await _store(request).adjust_balance(user_id, money=money, vcoin=vcoin)
-        await _audit(request, "balance", user_id=user_id, money=money, vcoin=vcoin)
+        money = abs(int(money or 0))
+        vcoin = abs(int(vcoin or 0))
+        if str(op) == "sub":
+            money, vcoin = -money, -vcoin
+        store = _store(request)
+        before = await store.get_stats(user_id)
+        note = str(sabab or "").strip()[:200]
+        await store.adjust_balance(
+            user_id, money=money, vcoin=vcoin, reason=note or "admin"
+        )
+        after = await store.get_stats(user_id)
+        await _audit(
+            request, "balance", user_id=user_id, money=money, vcoin=vcoin
+        )
+        if note:
+            dm_m = int(after["money"]) - int(before["money"])
+            dm_v = int(after["vcoin"]) - int(before["vcoin"])
+            lines = []
+            if dm_m:
+                lines.append(("+" if dm_m > 0 else "−") + f"{abs(dm_m)}$")
+            if dm_v:
+                lines.append(("+" if dm_v > 0 else "−") + f"{abs(dm_v)} Vcoin")
+            if lines:
+                await _notify_player(
+                    request,
+                    user_id,
+                    "panel_berish_dm",
+                    lines="\n".join(lines),
+                    sabab=note,
+                )
         return RedirectResponse(f"/users/{user_id}?ok=saved", 303)
 
     @app.post("/users/{user_id}/badge")
@@ -598,12 +634,35 @@ def register(app: FastAPI) -> None:
         user_id: int,
         badge_id: str = Form(...),
         rank: int = Form(1),
+        sabab: str = Form(""),
     ):
         await _need(request, "mutate")
-        ok, reason, _stats = await _store(request).grant_badge(user_id, badge_id, rank)
+        store = _store(request)
+        ok, reason, _stats = await store.grant_badge(user_id, badge_id, rank)
         await _audit(request, "badge_grant", user_id=user_id, item=f"{badge_id}:{rank}")
         if not ok:
             return RedirectResponse(f"/users/{user_id}?err={reason}", 303)
+        note = str(sabab or "").strip()[:200]
+        if note:
+            cat = await store.badge_by_id(badge_id)
+            lang = await store.get_user_lang(user_id)
+            title = badge_id
+            if cat:
+                title = str(
+                    cat.get(f"title_{lang}")
+                    or cat.get("title_uz")
+                    or badge_id
+                )
+            owned = await store.user_badge(user_id, badge_id)
+            shown = int(owned["rank"]) if owned else int(rank)
+            await _notify_player(
+                request,
+                user_id,
+                "panel_badge_dm",
+                title=title,
+                rank=shown,
+                sabab=note,
+            )
         return RedirectResponse(f"/users/{user_id}?ok=saved", 303)
 
     def _ad_form_ctx(ad: dict) -> dict:
@@ -879,7 +938,7 @@ def register(app: FastAPI) -> None:
     @app.post("/shop/save")
     async def shop_save(
         request: Request,
-        item_id: str = Form(...),
+        item_id: str = Form(""),
         emoji: str = Form("•"),
         title_uz: str = Form(...),
         title_ru: str = Form(...),
@@ -897,9 +956,8 @@ def register(app: FastAPI) -> None:
         await _need(request, "shop")
         from services.admin_data import SHOP_FIELDS
 
-        item_id = item_id.strip().lower()
-        if not SHOP_ID_RE.match(item_id):
-            return RedirectResponse("/shop?err=id", 303)
+        items = await _store(request).ensure_shop()
+        item_id = _item_id(item_id, items, "it")
         if field not in SHOP_FIELDS:
             field = "protection"
         vcoin_n = max(0, int(vcoin or gems or 0))
@@ -933,7 +991,7 @@ def register(app: FastAPI) -> None:
     @app.post("/shop/packs")
     async def pack_save(
         request: Request,
-        pack_id: str = Form(...),
+        pack_id: str = Form(""),
         kind: str = Form("vcoin"),
         amount: int = Form(0),
         vcoin: int = Form(0),
@@ -941,9 +999,8 @@ def register(app: FastAPI) -> None:
         enabled: str = Form(""),
     ):
         await _need(request, "shop")
-        pack_id = pack_id.strip().lower()
-        if not SHOP_ID_RE.match(pack_id):
-            return RedirectResponse("/shop?err=id", 303)
+        packs = await _store(request).ensure_vcoin_packs()
+        pack_id = _item_id(pack_id, packs, "pk")
         kind = "money" if kind == "money" else "vcoin"
         n = max(1, int(amount or vcoin or 1))
         await _store(request).upsert_vcoin_pack(
@@ -968,7 +1025,7 @@ def register(app: FastAPI) -> None:
     @app.post("/shop/swaps")
     async def swap_save(
         request: Request,
-        swap_id: str = Form(...),
+        swap_id: str = Form(""),
         vcoin: int = Form(0),
         money: int = Form(0),
         enabled: str = Form(""),
@@ -976,9 +1033,8 @@ def register(app: FastAPI) -> None:
         image: UploadFile | None = File(None),
     ):
         await _need(request, "shop")
-        swap_id = swap_id.strip().lower()
-        if not SHOP_ID_RE.match(swap_id):
-            return RedirectResponse("/shop?err=id", 303)
+        swaps = await _store(request).ensure_swaps()
+        swap_id = _item_id(swap_id, swaps, "sw")
         image_url = await _save_catalog_image("swaps", swap_id, image)
         if not image_url:
             image_url = _keep_image(keep_image, "swaps")
@@ -1004,13 +1060,24 @@ def register(app: FastAPI) -> None:
     @app.get("/badges", response_class=HTMLResponse)
     async def badges_page(request: Request):
         sess = await _need(request, "shop")
+        from game.roles import ROLE_TITLE, Role
+        from services.admin_data import DEFAULT_SHOP, SHOP_FIELDS
+
         items = _with_images(await _store(request).ensure_badges())
-        return _html(request, "badges.html", sess, items=items)
+        roles = [{"id": r.value, "title": ROLE_TITLE[r]} for r in Role]
+        fields = [
+            {"id": str(x.get("field") or x.get("id")), "title": x.get("title_uz") or x.get("id")}
+            for x in DEFAULT_SHOP
+            if str(x.get("field") or "") in SHOP_FIELDS
+        ]
+        return _html(
+            request, "badges.html", sess, items=items, roles=roles, fields=fields
+        )
 
     @app.post("/badges")
     async def badges_save(
         request: Request,
-        badge_id: str = Form(...),
+        badge_id: str = Form(""),
         emoji: str = Form("🏅"),
         title_uz: str = Form(...),
         title_ru: str = Form(""),
@@ -1021,9 +1088,8 @@ def register(app: FastAPI) -> None:
         image: UploadFile | None = File(None),
     ):
         await _need(request, "shop")
-        badge_id = badge_id.strip().lower()
-        if not SHOP_ID_RE.match(badge_id):
-            return RedirectResponse("/badges?err=id", 303)
+        badges = await _store(request).ensure_badges()
+        badge_id = _item_id(badge_id, badges, "bd")
         try:
             ranks = json.loads(ranks_json or "[]")
         except (TypeError, ValueError):
@@ -1071,7 +1137,7 @@ def register(app: FastAPI) -> None:
     @app.post("/gifts/save")
     async def gifts_save(
         request: Request,
-        gift_id: str = Form(...),
+        gift_id: str = Form(""),
         emoji: str = Form("🎁"),
         title_uz: str = Form(...),
         title_ru: str = Form(...),
@@ -1084,9 +1150,8 @@ def register(app: FastAPI) -> None:
         image: UploadFile | None = File(None),
     ):
         await _need(request, "shop")
-        gift_id = gift_id.strip().lower()
-        if not SHOP_ID_RE.match(gift_id):
-            return RedirectResponse("/gifts?err=id", 303)
+        gifts = await _store(request).ensure_gifts()
+        gift_id = _item_id(gift_id, gifts, "gf")
         image_url = await _save_catalog_image("gifts", gift_id, image)
         if not image_url:
             image_url = _keep_image(keep_image, "gifts")

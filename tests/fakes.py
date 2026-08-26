@@ -31,9 +31,21 @@ class MemoryRedis:
         self.zsets.setdefault(key, {}).update(mapping)
         return len(mapping)
 
+    async def zincrby(self, key: str, amount, member):
+        z = self.zsets.setdefault(key, {})
+        member = str(member)
+        z[member] = float(z.get(member, 0)) + float(amount)
+        return z[member]
+
     async def lpush(self, key: str, value):
         self.lists.setdefault(key, []).insert(0, value)
         return len(self.lists[key])
+
+    async def lrange(self, key: str, start: int, end: int):
+        items = self.lists.get(key, [])
+        if end < 0:
+            end = len(items) + end
+        return items[start : end + 1]
 
     async def ltrim(self, key: str, start: int, end: int):
         items = self.lists.get(key, [])

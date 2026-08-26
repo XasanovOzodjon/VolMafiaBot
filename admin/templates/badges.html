@@ -33,7 +33,7 @@
 {% block extra %}
 <div class="modal" id="badge-modal" hidden>
   <div class="modal-back" data-close></div>
-  <form id="badge-form" class="modal-panel" method="post" action="/badges" enctype="multipart/form-data">
+  <form id="badge-form" class="modal-panel badge-wide" method="post" action="/badges" enctype="multipart/form-data">
     <button type="button" class="modal-x" data-close aria-label="{{ t('cancel') }}">×</button>
     <h2 id="badge-modal-title">{{ t('add') }}</h2>
     <label class="drop">
@@ -44,18 +44,16 @@
     </label>
     <input type="hidden" name="keep_image" id="badge-keep">
     <input type="hidden" name="ranks_json" id="badge-ranks">
+    <input type="hidden" name="badge_id" id="badge-id" value="">
     <div class="row">
-      <div><label>{{ t('shop_id') }}</label><input name="badge_id" id="badge-id" required></div>
       <div><label>{{ t('emoji') }}</label><input name="emoji" id="badge-emoji" value="🏅"></div>
-    </div>
-    <div class="row">
       <div><label>UZ</label><input name="title_uz" id="badge-title-uz" required></div>
       <div><label>RU</label><input name="title_ru" id="badge-title-ru"></div>
     </div>
     <label>EN</label><input name="title_en" id="badge-title-en">
     <label class="check"><input type="checkbox" name="enabled" id="badge-enabled" value="1" checked> {{ t('enabled') }}</label>
     <h3>{{ t('rank') }}</h3>
-    <p class="hint">{{ t('shart') }} · {{ t('vcoin_cost') }} (0 = Do'konda yo'q)</p>
+    <p class="hint">{{ t('shart') }} · {{ t('vcoin_cost') }} (0 = Do'konda yo'q). Avto ixtiyoriy.</p>
     <div id="rank-list"></div>
     <p><button type="button" class="ghost" id="rank-add">+ {{ t('add_rank') }}</button></p>
     <p class="modal-acts">
@@ -65,5 +63,7 @@
   </form>
 </div>
 <script type="application/json" id="badge-items">{{ items|tojson }}</script>
-<script src="/static/badges.js?v=1"></script>
+<script type="application/json" id="badge-roles">{{ roles|tojson }}</script>
+<script type="application/json" id="badge-fields">{{ fields|tojson }}</script>
+<script src="/static/badges.js?v=3"></script>
 {% endblock %}

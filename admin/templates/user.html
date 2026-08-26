@@ -2,55 +2,43 @@
 {% set nav = "users" %}
 {% block body %}
 <p><a href="/users">← {{ t('nav_users') }}</a></p>
-<h1>{{ stats.name or uid }}</h1>
-<p>ID {{ uid }} {% if prof.username %}· @{{ prof.username }}{% endif %}
-  {% if banned %}<span class="badge">{{ t('banned') }}</span>{% endif %}
-  {% if staff %}<span class="badge">{{ staff }}</span>{% endif %}
-</p>
+<div class="user-hero">
+  <div>
+    <p class="kicker">O'YINCHI</p>
+    <h1>{{ stats.name or uid }}</h1>
+    <p>ID {{ uid }} {% if prof.username %}· @{{ prof.username }}{% endif %}
+      {% if banned %}<span class="badge">{{ t('banned') }}</span>{% endif %}
+      {% if staff %}<span class="badge">{{ staff }}</span>{% endif %}
+    </p>
+  </div>
+</div>
 <div class="grid">
-  <div class="card"><div class="k">{{ t('money') }}</div><div class="v">{{ stats.money }}</div></div>
+  <div class="card"><div class="k">$</div><div class="v">{{ stats.money }}</div></div>
   <div class="card"><div class="k">{{ t('vcoin') }}</div><div class="v">{{ stats.vcoin }}</div></div>
   <div class="card"><div class="k">{{ t('games') }}</div><div class="v">{{ stats.games }}</div></div>
   <div class="card"><div class="k">{{ t('wins') }}</div><div class="v">{{ stats.wins }}</div></div>
 </div>
-<p>🛡️ {{ stats.protection }} · 📁 {{ stats.documents }} · 🎎 {{ stats.active_role }} · 🎭 {{ stats.chosen_role }}
+<p class="inv-line">🛡️ {{ stats.protection }} · 📁 {{ stats.documents }} · 🎎 {{ stats.active_role }} · 🎭 {{ stats.chosen_role }}
   {% if stats.chosen_pick %} ({{ stats.chosen_pick }}){% endif %}
 </p>
-{% if can('mutate') %}
-<div class="card">
-  <h2>{{ t('adjust') }}</h2>
-  <form method="post" action="/users/{{ uid }}/balance">
-    <div class="row">
-      <div><label>{{ t('money') }} ±</label><input name="money" type="number" value="0"></div>
-      <div><label>{{ t('vcoin') }} ±</label><input name="vcoin" type="number" value="0"></div>
-    </div>
-    <p><button>{{ t('save') }}</button></p>
-  </form>
+{% if owned %}
+<div class="owned-wrap">
+  {% for o in owned %}
+  <span class="owned-chip">
+    {% if o.image %}<img src="{{ o.image }}" alt="">{% endif %}
+    <b>{{ o.emoji }} {{ o.title }}</b>
+    <em>Rank {{ o.rank }}</em>
+  </span>
+  {% endfor %}
 </div>
 {% endif %}
 {% if can('mutate') %}
-<div class="card">
-  <h2>{{ t('grant_badge') }}</h2>
-  {% if owned %}
-  <p>{% for o in owned %}<span class="owned-rank">{{ o.title }} x{{ o.rank }}</span> {% endfor %}</p>
-  {% endif %}
+<p class="user-acts">
+  <button type="button" class="btn" id="open-balance">{{ t('manage_balance') }}</button>
   {% if catalog %}
-  <form method="post" action="/users/{{ uid }}/badge">
-    <div class="row">
-      <div>
-        <label>{{ t('nav_badges') }}</label>
-        <select name="badge_id">
-          {% for b in catalog %}
-          <option value="{{ b.id }}">{{ b.title_uz }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div><label>{{ t('rank') }}</label><input name="rank" type="number" min="1" value="1"></div>
-    </div>
-    <p><button>{{ t('save') }}</button></p>
-  </form>
+  <button type="button" class="btn" id="open-badge">{{ t('grant_badge') }}</button>
   {% endif %}
-</div>
+</p>
 {% endif %}
 {% if can('staff') %}
 <p><a class="btn ghost" href="/economy?user={{ uid }}">{{ t('nav_econ') }}</a></p>
@@ -60,5 +48,56 @@
   <input type="hidden" name="on" value="{{ 0 if banned else 1 }}">
   <button class="{{ 'ghost' if banned else 'danger' }}">{{ t('unban') if banned else t('ban') }}</button>
 </form>
+{% endif %}
+{% endblock %}
+{% block extra %}
+{% if can('mutate') %}
+<div class="modal" id="balance-modal" hidden>
+  <div class="modal-back" data-close></div>
+  <form class="modal-panel" method="post" action="/users/{{ uid }}/balance">
+    <button type="button" class="modal-x" data-close aria-label="{{ t('cancel') }}">×</button>
+    <h2>{{ t('manage_balance') }}</h2>
+    <p class="hint">{{ stats.money }}$ · {{ stats.vcoin }} {{ t('vcoin') }}</p>
+    <div class="op-pills">
+      <label class="pill"><input type="radio" name="op" value="add" checked> {{ t('add') }}</label>
+      <label class="pill"><input type="radio" name="op" value="sub"> {{ t('subtract') }}</label>
+    </div>
+    <div class="row">
+      <div><label>$</label><input name="money" type="number" min="0" step="1" value="0"></div>
+      <div><label>{{ t('vcoin') }}</label><input name="vcoin" type="number" min="0" step="1" value="0"></div>
+    </div>
+    <label>{{ t('sabab') }}</label>
+    <textarea name="sabab" rows="3" maxlength="200" placeholder="{{ t('sabab_hint') }}"></textarea>
+    <p class="modal-acts">
+      <button type="button" class="ghost" data-close>{{ t('cancel') }}</button>
+      <button>{{ t('save') }}</button>
+    </p>
+  </form>
+</div>
+{% if catalog %}
+<div class="modal" id="badge-grant-modal" hidden>
+  <div class="modal-back" data-close></div>
+  <div class="modal-panel badge-wide">
+    <button type="button" class="modal-x" data-close aria-label="{{ t('cancel') }}">×</button>
+    <h2>{{ t('grant_badge') }}</h2>
+    <p class="hint" id="grant-hint">{{ t('pick_badge') }}</p>
+    <div class="grant-grid" id="grant-grid"></div>
+    <form id="grant-form" class="grant-step" method="post" action="/users/{{ uid }}/badge" hidden>
+      <input type="hidden" name="badge_id" id="grant-badge-id">
+      <input type="hidden" name="rank" id="grant-rank-val" value="1">
+      <p class="grant-picked" id="grant-picked"></p>
+      <div class="rank-picks" id="grant-ranks"></div>
+      <label>{{ t('sabab') }}</label>
+      <textarea name="sabab" rows="3" maxlength="200" placeholder="{{ t('sabab_hint') }}"></textarea>
+      <p class="modal-acts">
+        <button type="button" class="ghost" id="grant-back">{{ t('back') }}</button>
+        <button>{{ t('save') }}</button>
+      </p>
+    </form>
+  </div>
+</div>
+<script type="application/json" id="user-catalog">{{ catalog|tojson }}</script>
+{% endif %}
+<script src="/static/user.js?v=1"></script>
 {% endif %}
 {% endblock %}
