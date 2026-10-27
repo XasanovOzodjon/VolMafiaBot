@@ -430,23 +430,3 @@ async def test_auto_kind_with_zero_n_does_not_grant():
     )
     await st.add_stats(1, won=True)
     assert await st.user_badge(1, "star") is None
-
-
-@pytest.mark.asyncio
-async def test_auto_kind_with_zero_n_does_not_grant():
-    st = _gstore()
-    await st.upsert_badge(
-        _badge(
-            ranks=[
-                {
-                    "rank": 1,
-                    "shart_uz": "zero",
-                    "vcoin_cost": 0,
-                    "kind": "win",
-                    "n": 0,
-                }
-            ]
-        )
-    )
-    await st.add_stats(1, won=True)
-    assert await st.user_badge(1, "star") is None

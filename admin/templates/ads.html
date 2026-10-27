@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% set nav = "ads" %}
+{% block body %}
+<h1>{{ t('nav_ads') }}</h1>
+<p><a class="btn" href="/ads/new">{{ t('new_ad') }}</a></p>
+<div class="card">
+<table>
+  <tr>
+    <th>ID</th><th>{{ t('target') }}</th><th>{{ t('status') }}</th><th></th>
+  </tr>
+  {% for a in ads %}
+    <tr>
+      <td>{{ a.id }}</td>
+      <td>{{ a.target }}</td>
+      <td>
+        {{ a.status }}
+        {% if a.stats %} · {{ a.stats.ok }}/{{ a.stats.total }}{% endif %}
+        {% if a.status == 'sending' %}
+          <div class="progress"><span style="width: {{ ((a.stats.ok or 0) + (a.stats.fail or 0)) * 100 / (a.stats.total or 1) }}%"></span></div>
+        {% endif %}
+      </td>
+      <td>
+        <a href="/ads/{{ a.id }}/preview">{{ t('preview') }}</a>
+        · <a href="/ads/{{ a.id }}/edit">{{ t('edit') }}</a>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="4">{{ t('empty') }}</td></tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

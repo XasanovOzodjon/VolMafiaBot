@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% set nav = "i18n" %}
+{% block body %}
+<h1>{{ flag }} {{ lang.name }} <small><code>{{ lang.code }}</code></small></h1>
+<p class="hint">{{ t('i18n_edit_help') }}</p>
+<form method="get" action="/i18n/{{ lang.code }}/edit">
+  <label>{{ t('search') }}</label>
+  <input name="q" value="{{ q or '' }}">
+</form>
+<form method="post" action="/i18n/{{ lang.code }}/save" id="i18n-form">
+  {% for prefix, items in groups.items() %}
+  <div class="card" style="margin-top:14px">
+    <h2>{{ prefix }}</h2>
+    {% for key in items %}
+    <label><code>{{ key }}</code></label>
+    <textarea name="k:{{ key }}" rows="3">{{ texts.get(key, '') }}</textarea>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  <p style="margin-top:16px"><button type="submit">{{ t('save') }}</button>
+     <a class="btn ghost" href="/i18n">{{ t('cancel') }}</a></p>
+</form>
+{% endblock %}

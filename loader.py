@@ -1,4 +1,14 @@
-from telegram import Bot
+from telegram.ext import Application, ApplicationBuilder
+
 from data import config
 
-bot = Bot(token=config.BOT_TOKEN)
+
+def create_application(post_init, post_shutdown) -> Application:
+    return (
+        ApplicationBuilder()
+        .token(config.BOT_TOKEN)
+        .post_init(post_init)
+        .post_shutdown(post_shutdown)
+        .concurrent_updates(True)
+        .build()
+    )

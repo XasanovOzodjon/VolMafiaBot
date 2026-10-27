@@ -92,3 +92,30 @@ class MemoryRedis:
 
     async def sismember(self, key: str, value) -> bool:
         return str(value) in self.sets.get(key, set())
+
+    async def scard(self, key: str) -> int:
+        return len(self.sets.get(key, set()))
+
+    async def smembers(self, key: str):
+        return set(self.sets.get(key, set()))
+
+    async def hincrby(self, key: str, field: str, amount: int = 1):
+        bucket = self.hashes.setdefault(key, {})
+        field = str(field)
+        n = int(bucket.get(field) or 0) + int(amount)
+        bucket[field] = n
+        return n
+
+    def lock(self, key: str, **kwargs):
+        class _FakeLock:
+            def __init__(self, k):
+                self.k = k
+            async def acquire(self):
+                return True
+            async def release(self):
+                return True
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+        return _FakeLock(key)

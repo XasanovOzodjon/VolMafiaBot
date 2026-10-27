@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% set nav = "ads" %}
+{% block body %}
+<h1>{{ t('new_ad') }}</h1>
+<form id="ad-composer" method="post" action="/ads/save" enctype="multipart/form-data"
+      data-ad-id="{{ ad.id or '' }}">
+  <input type="hidden" name="ad_id" value="{{ ad.id or '' }}">
+  <input type="hidden" name="ids" id="ids" value="{% for i in ad.ids or [] %}{{ i }} {% endfor %}">
+  <input type="hidden" name="buttons_json" id="buttons_json" value="{{ buttons_json|e }}">
+
+  <div class="compose">
+    <div class="card">
+      <div class="mode-switch" id="lang-mode-switch"
+           data-help-single="{{ t('lang_mode_single_help') }}"
+           data-help-multi="{{ t('lang_mode_multi_help') }}"
+           data-label-one="{{ t('text_one') }}"
+           data-label-uz="{{ t('text_uz') }}">
+        <button type="button" class="ghost {{ 'on' if lang_mode!='multi' else '' }}" data-lang-mode="single">{{ t('lang_mode_single') }}</button>
+        <button type="button" class="ghost {{ 'on' if lang_mode=='multi' else '' }}" data-lang-mode="multi">{{ t('lang_mode_multi') }}</button>
+      </div>
+      <input type="hidden" name="lang_mode" id="lang_mode" value="{{ lang_mode }}">
+      <p class="hint" id="lang-mode-help">{{ t('lang_mode_multi_help') if lang_mode=='multi' else t('lang_mode_single_help') }}</p>
+      <div class="tabs" id="lang-tabs" {% if lang_mode != 'multi' %}style="display:none"{% endif %}>
+        <button type="button" class="ghost on" data-prev-lang="uz">UZ</button>
+        <button type="button" class="ghost" data-prev-lang="ru">RU</button>
+        <button type="button" class="ghost" data-prev-lang="en">EN</button>
+      </div>
+      <div class="toolbar">
+        <button type="button" data-fmt="b"><b>B</b></button>
+        <button type="button" data-fmt="i"><i>I</i></button>
+        <button type="button" data-fmt="u"><u>U</u></button>
+        <button type="button" data-fmt="s"><s>S</s></button>
+        <button type="button" data-fmt="spoiler">spoiler</button>
+        <button type="button" data-fmt="code">code</button>
+        <button type="button" data-fmt="pre">pre</button>
+        <button type="button" data-fmt="a">link</button>
+      </div>
+      <p class="hint">{{ t('html_help')|e }}</p>
+      <div data-text-pane="uz">
+        <label id="label-uz">{{ t('text_uz') if lang_mode=='multi' else t('text_one') }}</label>
+        <textarea name="text_uz" id="text_uz" rows="7">{{ ad.text_uz or ad.text or '' }}</textarea>
+      </div>
+      <div data-text-pane="ru" style="display:none">
+        <label>{{ t('text_ru') }}</label>
+        <textarea name="text_ru" id="text_ru" rows="7">{{ ad.text_ru or '' }}</textarea>
+      </div>
+      <div data-text-pane="en" style="display:none">
+        <label>{{ t('text_en') }}</label>
+        <textarea name="text_en" id="text_en" rows="7">{{ ad.text_en or '' }}</textarea>
+      </div>
+      <p id="char-count" class="hint">0 / 4096</p>
+      <p id="html-warn" class="warn"></p>
+
+      <div class="row">
+        <div>
+          <label>{{ t('media') }}</label>
+          <select name="media_type" id="media_type">
+            <option value="none" {% if (ad.media_type or 'none')=='none' %}selected{% endif %}>{{ t('none_media') }}</option>
+            <option value="photo" {% if ad.media_type=='photo' %}selected{% endif %}>{{ t('photo') }}</option>
+            <option value="album" {% if ad.media_type=='album' %}selected{% endif %}>{{ t('album') }}</option>
+            <option value="animation" {% if ad.media_type=='animation' %}selected{% endif %}>{{ t('animation') }}</option>
+            <option value="video" {% if ad.media_type=='video' %}selected{% endif %}>{{ t('video') }}</option>
+          </select>
+        </div>
+        <div>
+          <label>{{ t('file_id') }}</label>
+          <input name="file_id" id="file_id" value="{{ ad.file_id or '' }}">
+        </div>
+      </div>
+      <label>{{ t('upload') }}</label>
+      <input type="hidden" name="media_json" id="media_json" value="{{ media_json|e }}">
+      <input type="file" name="media" id="media_file" accept="image/*,video/*,.gif" multiple>
+      <div id="media-thumbs" class="media-thumbs"></div>
+      <p class="hint">{{ t('album_help') }}</p>
+
+      <label>{{ t('buttons') }}</label>
+      <div id="btn-builder" class="btn-builder"></div>
+      <p><button type="button" class="ghost" id="add-btn-row">+ {{ t('btn_row') }}</button></p>
+      <p class="hint">{{ t('btn_help') }}</p>
+
+      <label>{{ t('target') }}</label>
+      <select name="target" id="target">
+        <option value="all_users" {% if (ad.target or 'all_users')=='all_users' %}selected{% endif %}>{{ t('all_users') }}</option>
+        <option value="all_groups" {% if ad.target=='all_groups' %}selected{% endif %}>{{ t('all_groups') }}</option>
+        <option value="pick_users" {% if ad.target=='pick_users' %}selected{% endif %}>{{ t('pick_users') }}</option>
+        <option value="pick_groups" {% if ad.target=='pick_groups' %}selected{% endif %}>{{ t('pick_groups') }}</option>
+      </select>
+      <p class="meta-line" id="audience-meta"></p>
+      <div id="audience-box" style="display:none">
+        <label>{{ t('search') }}</label>
+        <div class="search-box">
+          <input id="audience-q" type="search" autocomplete="off" placeholder="{{ t('search') }}">
+          <div id="audience-hits" class="search-hits"></div>
+        </div>
+        <div id="audience-chips" class="chip-list"></div>
+      </div>
+
+      <label>{{ t('schedule') }}</label>
+      <input type="datetime-local" name="send_at" value="{{ send_at_local }}">
+
+      <div class="checkline">
+        <label><input type="checkbox" name="link_preview" id="link_preview" value="1" {% if ad.link_preview or not ad.id %}checked{% endif %}> {{ t('link_preview') }}</label>
+        <label><input type="checkbox" name="silent" value="1" {% if ad.silent %}checked{% endif %}> {{ t('silent') }}</label>
+        <label><input type="checkbox" name="pin" value="1" {% if ad.pin %}checked{% endif %}> {{ t('pin') }}</label>
+      </div>
+      <p><button type="submit">{{ t('preview') }}</button>
+         <a class="btn ghost" href="/ads">{{ t('cancel') }}</a></p>
+    </div>
+
+    <div class="preview-col">
+      {% include "tg_chat.html" %}
+      <div class="brick-tray" id="brick-tray"
+           data-drop="{{ t('brick_drop') }}"
+           data-text="{{ t('brick_text') }}"
+           data-url="{{ t('brick_url') }}"
+           data-label="{{ t('brick') }}">
+        <button type="button" class="brick" id="brick-btn">{{ t('brick') }} ↗</button>
+        <div class="brick brick-trash" id="brick-trash">{{ t('brick_del') }}</div>
+      </div>
+      <p class="hint">{{ t('brick_help') }}</p>
+    </div>
+  </div>
+</form>
+{% endblock %}
+{% block extra %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap">
+<script src="/static/ads.js?v=tg11"></script>
+{% endblock %}

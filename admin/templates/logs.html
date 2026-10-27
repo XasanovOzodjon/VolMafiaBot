@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% set nav = "logs" %}
+{% block body %}
+<h1>{{ t('nav_logs') }}</h1>
+<div class="card">
+  {% if not logs %}<p>{{ t('audit_empty') }}</p>{% else %}
+  <table>
+    <tr>
+      <th>{{ t('when') }}</th>
+      <th>{{ t('who') }}</th>
+      <th>{{ t('role') }}</th>
+      <th>{{ t('actions') }}</th>
+      <th></th>
+    </tr>
+    {% for row in logs %}
+    <tr>
+      <td>{{ row.when }}</td>
+      <td>{{ row.who }} {% if row.tg_id %}<span class="badge">{{ row.tg_id }}</span>{% endif %}</td>
+      <td>{{ row.role }}</td>
+      <td>{{ row.action }}</td>
+      <td class="meta-line">{{ row.ip }}
+        {% if row.chat_id %} chat {{ row.chat_id }}{% endif %}
+        {% if row.user_id %} user {{ row.user_id }}{% endif %}
+        {% if row.ad_id %} ad {{ row.ad_id }}{% endif %}
+        {% if row.money %} $ {{ row.money }}{% endif %}
+        {% if row.vcoin %} 🪙 {{ row.vcoin }}{% endif %}
+        {% if row.gems %} 🪙 {{ row.gems }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

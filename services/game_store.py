@@ -310,6 +310,18 @@ class GameStore(AdminData):
                 pass
 
     @asynccontextmanager
+    async def user_lock(self, user_id: int, timeout: int = 10, blocking_timeout: int = 5) -> AsyncIterator[None]:
+        lock = self.redis.lock(f"mafia:lock:user:{user_id}", timeout=timeout, blocking_timeout=blocking_timeout)
+        await lock.acquire()
+        try:
+            yield
+        finally:
+            try:
+                await lock.release()
+            except Exception:
+                pass
+
+    @asynccontextmanager
     async def locked(self, chat_id: int) -> AsyncIterator[Optional[Game]]:
         async with self.lock_only(chat_id):
             game = await self.get(chat_id)
@@ -321,3 +333,22 @@ class GameStore(AdminData):
                         await self.delete(chat_id)
                     else:
                         await self.save(game)
+
+    async def claim_daily_bonus(self, user_id: int):
+        from services.retention import RetentionService
+        async with self.user_lock(user_id):
+            return await RetentionService.claim_daily_bonus(self, user_id)
+
+    async def bind_referral(self, user_id: int, referrer_id: int):
+        from services.retention import RetentionService
+        async with self.user_lock(user_id):
+            return await RetentionService.bind_referral(self, user_id, referrer_id)
+
+    async def reward_referrer_if_eligible(self, user_id: int):
+        from services.retention import RetentionService
+        return await RetentionService.reward_referrer_if_eligible(self, user_id)
+
+    async def open_lucky_box(self, user_id: int):
+        from services.retention import RetentionService
+        async with self.user_lock(user_id):
+            return await RetentionService.open_lucky_box(self, user_id)

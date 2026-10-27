@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% set nav = "staff" %}
+{% block body %}
+<h1>{{ t('nav_staff') }}</h1>
+<div class="card">
+<table>
+  <tr><th>ID</th><th>{{ t('title') }}</th><th>{{ t('role') }}</th><th>{{ t('panel_user') }}</th><th></th></tr>
+  {% for u in staff %}
+  <tr>
+    <td>{{ u.id }}</td>
+    <td>{{ u.name }} {% if u.env %}<span class="badge">env</span>{% endif %}</td>
+    <td>{{ u.role }}</td>
+    <td>{{ u.panel_user or '—' }}</td>
+    <td>
+      {% if not u.env %}
+      <form method="post" action="/staff/{{ u.id }}/login" class="row">
+        <input name="panel_user" placeholder="{{ t('panel_user') }}" value="{{ u.panel_user or '' }}">
+        <input name="panel_password" type="password" placeholder="{{ t('panel_password') }}" autocomplete="new-password">
+        <button class="ghost" type="submit">{{ t('save') }}</button>
+      </form>
+      <form method="post" action="/staff/{{ u.id }}/delete">
+        <button class="ghost">{{ t('delete') }}</button>
+      </form>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+<form method="post" action="/staff/add" class="card" style="margin-top:16px">
+  <h2>{{ t('add') }}</h2>
+  <p class="hint">{{ t('staff_login_help') }}</p>
+  <div class="row">
+    <div><label>Telegram ID</label><input name="user_id" required></div>
+    <div>
+      <label>{{ t('role') }}</label>
+      <select name="role">
+        <option value="super">{{ t('super') }}</option>
+        <option value="moderator">{{ t('moderator') }}</option>
+        <option value="ads">{{ t('ads') }}</option>
+      </select>
+    </div>
+  </div>
+  <label>{{ t('title') }}</label>
+  <input name="name">
+  <div class="row">
+    <div><label>{{ t('panel_user') }}</label><input name="panel_user" autocomplete="off"></div>
+    <div><label>{{ t('panel_password') }}</label><input name="panel_password" type="password" autocomplete="new-password"></div>
+  </div>
+  <p><button>{{ t('save') }}</button></p>
+</form>
+{% endblock %}

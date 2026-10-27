@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% set nav = "users" %}
+{% block body %}
+<h1>{{ t('nav_users') }}</h1>
+<form>
+  <div class="row">
+    <input name="q" value="{{ q }}" placeholder="{{ t('search') }}">
+    <button>{{ t('search') }}</button>
+  </div>
+</form>
+<div class="card" style="margin-top:16px">
+<table>
+  <tr><th>{{ t('title') }}</th><th>ID</th><th>{{ t('money') }} / {{ t('vcoin') }}</th><th>{{ t('games') }}</th><th></th></tr>
+  {% for u in users %}
+  <tr>
+    <td>{{ u.name }} {% if u.banned %}<span class="badge">ban</span>{% endif %}</td>
+    <td>{{ u.id }}</td>
+    <td>{{ u.stats.money }} / {{ u.stats.vcoin }}</td>
+    <td>{{ u.stats.games }}</td>
+    <td><a class="btn ghost" href="/users/{{ u.id }}">{{ t('open') }}</a></td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5">{{ t('empty') }}</td></tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

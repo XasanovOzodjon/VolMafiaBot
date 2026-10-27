@@ -23,6 +23,7 @@ from game.texts import (
     lynch_no_agree,
     lynch_role_reveal,
     no_lynch,
+    vote_board,
     vote_cast_text,
 )
 from game.win import winner
@@ -251,7 +252,18 @@ class DayFlow:
             snapshot = Game.from_dict(game.to_dict())
             ready = all(uid in game.votes for uid in _vote_eligible_ids(game))
         voter = snapshot.players.get(user.id) if snapshot else None
-        if voter is not None:
+        if voter is not None and snapshot is not None:
+            if snapshot.status_message_id:
+                try:
+                    await edit_html(
+                        context.bot,
+                        chat_id,
+                        snapshot.status_message_id,
+                        vote_board(snapshot, config.VOTE_SECONDS),
+                        vote_open_kb(snapshot.lang, context.bot.username, chat_id),
+                    )
+                except Exception:
+                    pass
             await send_html(
                 context.bot,
                 chat_id,
@@ -303,7 +315,13 @@ class DayFlow:
     def _winner_of_votes(self, game: Game):
         if not game.votes:
             return None
-        counter: Counter = Counter(game.votes.values())
+        counter: Counter = Counter()
+        for voter_id, target in game.votes.items():
+            weight = 1
+            voter = game.players.get(int(voter_id))
+            if voter and voter.role == Role.MER.value:
+                weight = 2
+            counter[target] += weight
         best = counter.most_common(2)
         if not best:
             return None
@@ -420,6 +438,7 @@ class DayFlow:
         new_don = None
         lang = "uz"
         target_id = None
+        kamikadze_victim = None
         async with self.store.locked(chat_id) as game:
             if not game or game.phase != Phase.LYNCH_WAIT:
                 return
@@ -433,6 +452,21 @@ class DayFlow:
             game.no_vote_user_id = None
             if hang and nominated and nominated.alive:
                 nominated.alive = False
+                if nominated.role == Role.KAMIKADZE.value:
+                    import random
+                    voters = [
+                        int(uid)
+                        for uid, voted_target in game.votes.items()
+                        if voted_target == nominated.user_id
+                        and game.players.get(int(uid))
+                        and game.players[int(uid)].alive
+                    ]
+                    if voters:
+                        k_id = random.choice(voters)
+                        k_vic = game.players.get(k_id)
+                        if k_vic and k_vic.alive:
+                            k_vic.alive = False
+                            kamikadze_victim = k_vic
                 if nominated.role == Role.YAKUDZA.value:
                     game.yakudza_pending_id = nominated.user_id
                     game.after_yakudza = "night"
@@ -456,6 +490,14 @@ class DayFlow:
                 context.bot, chat_id, lynch_hang_result(victim, yes, no, lang)
             )
             await send_html(context.bot, chat_id, lynch_role_reveal(victim, lang))
+            if kamikadze_victim:
+                from game.texts import mention
+                await send_html(
+                    context.bot,
+                    chat_id,
+                    f"💥 <b>PORTLASH!</b> {mention(victim)} Kamikadze bo‘lib chiqdi!\n"
+                    f"U o‘ziga ovoz bergan {mention(kamikadze_victim)} ni o‘zi bilan birga portlatib ketdi!",
+                )
         else:
             await send_html(context.bot, chat_id, lynch_no_agree(yes, no, lang))
 

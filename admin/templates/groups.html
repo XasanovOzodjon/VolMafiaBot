@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% set nav = "groups" %}
+{% block body %}
+<h1>{{ t('nav_groups') }}</h1>
+<form>
+  <div class="row">
+    <input name="q" value="{{ q }}" placeholder="{{ t('search') }}">
+    <button>{{ t('search') }}</button>
+  </div>
+</form>
+<div class="card" style="margin-top:16px">
+<table>
+  <tr>
+    <th>{{ t('title') }}</th><th>{{ t('id') }}</th><th>{{ t('lang') }}</th>
+    <th>{{ t('games') }}</th><th>{{ t('members') }}</th><th></th>
+  </tr>
+  {% for g in groups %}
+  <tr>
+    <td>
+      {% if g.id in live_ids %}<span class="live">●</span>{% endif %}
+      {{ g.title }}
+      {% if g.left %}<span class="badge">left</span>{% endif %}
+    </td>
+    <td>{{ g.id }}</td>
+    <td>{{ g.settings.lang }}</td>
+    <td>{{ g.stats.games }}</td>
+    <td>{{ g.members }}</td>
+    <td><a class="btn ghost" href="/groups/{{ g.id }}">{{ t('open') }}</a></td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6">{{ t('no_data') }}</td></tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

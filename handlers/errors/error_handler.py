@@ -1,26 +1,25 @@
 import logging
-from telegram.error import (
-    Unauthorized, TelegramError,
-    BadRequest, RetryAfter
-)
-from telegram.ext import Dispatcher, CallbackContext
+
 from telegram import Update
+from telegram.error import BadRequest, Forbidden, RetryAfter, TelegramError
+from telegram.ext import ContextTypes
 
-def error_handler(update: Update, context: CallbackContext):
+logger = logging.getLogger(__name__)
+
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    err = context.error
+    if err is None:
+        return
     try:
-        raise context.error
-    except Unauthorized as e:
-        logging.exception(f'Unauthorized: {e}')
-    except BadRequest as e:
-        logging.exception(f'BadRequest: {e}')
-    # except InvalidQueryID as e:
-    #     logging.exception(f'InvalidQueryID: {e} \nUpdate: {update}')
-    except RetryAfter as e:
-        logging.exception(f'RetryAfter: {e} \nUpdate: {update}')
-    except TelegramError as e:
-        logging.exception(f'TelegramError: {e} \nUpdate: {update}')
-    except Exception as e:
-        logging.exception(f'Update: {update} \n{e}')
-
-# Ushbu handlerni dispatcherga ro'yxatdan o'tkazish kerak:
-# dp.add_error_handler(error_handler)
+        raise err
+    except Forbidden:
+        logger.warning("Forbidden: %s", err)
+    except BadRequest:
+        logger.warning("BadRequest: %s", err)
+    except RetryAfter:
+        logger.warning("RetryAfter: %s", err)
+    except TelegramError:
+        logger.exception("TelegramError: %s | update=%s", err, update)
+    except Exception:
+        logger.exception("Update: %s", update)

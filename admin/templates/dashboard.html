@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% set nav = "dash" %}
+{% block body %}
+<h1>{{ t('nav_dash') }}</h1>
+{% if weak_pass %}<div class="flash err">{{ t('weak_pass') }}</div>{% endif %}
+<div class="grid">
+  <div class="card"><div class="k">{{ t('live') }}</div><div class="v">{{ live|length }}</div></div>
+  <div class="card"><div class="k">{{ t('groups') }}</div><div class="v">{{ groups_n }}</div></div>
+  <div class="card"><div class="k">{{ t('players') }}</div><div class="v">{{ glob.players }}</div></div>
+  <div class="card"><div class="k">{{ t('today') }}</div><div class="v">{{ today.games }}</div></div>
+</div>
+<div class="row" style="margin-top:18px">
+  <div class="card">
+    <h2>{{ t('live') }}</h2>
+    {% if not live %}<p>{{ t('no_data') }}</p>{% else %}
+    <table>
+      <tr><th>{{ t('title') }}</th><th>{{ t('phase') }}</th><th>{{ t('players') }}</th></tr>
+      {% for g in live %}
+      <tr>
+        <td><a href="/groups/{{ g.chat_id }}">{{ g.title }}</a></td>
+        <td class="live">{{ g.phase }}{% if g.test %} · test{% endif %}</td>
+        <td>{{ g.alive }}/{{ g.players }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+  </div>
+  <div class="card">
+    <h2>{{ t('growth') }}</h2>
+    <canvas id="chart" height="160"></canvas>
+  </div>
+</div>
+<div class="row" style="margin-top:18px">
+  <div class="card">
+    <h2>{{ t('top_groups') }}</h2>
+    <table>
+      {% for g in top_g %}
+      <tr><td><a href="/groups/{{ g.id }}">{{ g.title }}</a></td><td>{{ g.stats.games }}</td></tr>
+      {% else %}
+      <tr><td>{{ t('empty') }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+  <div class="card">
+    <h2>{{ t('top_players') }}</h2>
+    <table>
+      {% for uid, name, score in top_p %}
+      <tr><td><a href="/users/{{ uid }}">{{ name }}</a></td><td>{{ score }} 💵</td></tr>
+      {% else %}
+      <tr><td>{{ t('empty') }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const series = {{ series|tojson }};
+const ctx = document.getElementById('chart');
+if (ctx && series.length) {
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: series.map(x => x.day.slice(5)),
+      datasets: [
+        {label: 'games', data: series.map(x => x.games), borderColor: '#5ad4ff', tension: .3},
+        {label: 'users', data: series.map(x => x.new_users), borderColor: '#2aabee', tension: .3}
+      ]
+    },
+    options: {plugins:{legend:{labels:{color:'#e8f4ff'}}}, scales:{x:{ticks:{color:'#7f9bb0'}}, y:{ticks:{color:'#7f9bb0'}}}}
+  });
+}
+</script>
+{% endblock %}

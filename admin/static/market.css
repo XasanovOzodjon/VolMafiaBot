@@ -21,7 +21,7 @@ body {
     radial-gradient(720px 340px at calc(8% + var(--parx)) calc(-12% + var(--pary)), rgba(42, 171, 238, .38), transparent 55%),
     radial-gradient(480px 260px at calc(110% + var(--parx)) calc(0% + var(--pary)), rgba(255, 213, 106, .14), transparent 46%),
     #070b12;
-  padding: 18px 16px 48px;
+  padding: max(18px, env(safe-area-inset-top, 0px)) 16px max(48px, env(safe-area-inset-bottom, 0px));
   width: 100%;
   max-width: 430px;
   margin: 0 auto;
@@ -212,9 +212,11 @@ button.ghost.on {
 .sheet-card {
   position: relative;
   z-index: 1;
-  width: 100%;
-  max-height: 90vh;
+  width: min(100%, 430px);
+  margin: 0 auto;
+  max-height: min(90vh, 90dvh);
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
   background: #0b1522;
   border-radius: 28px 28px 0 0;
   border: 1px solid var(--line);
@@ -232,7 +234,7 @@ button.ghost.on {
   color: var(--text); font-size: 1.3rem;
 }
 .sheet-hero {
-  position: relative; height: 250px;
+  position: relative; height: clamp(120px, 28vh, 220px);
   background: #081018;
 }
 .sheet-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -240,7 +242,7 @@ button.ghost.on {
   position: absolute; left: 16px; bottom: 16px; font-size: 2rem;
   filter: drop-shadow(0 6px 12px rgba(0,0,0,.6));
 }
-.sheet-body { padding: 18px 18px 28px; }
+.sheet-body { padding: 16px 16px calc(18px + env(safe-area-inset-bottom, 0px)); }
 .sheet-body h2 {
   margin: 0 0 8px; font-family: Sora, Outfit, sans-serif; font-size: 1.35rem;
 }
@@ -505,6 +507,18 @@ button.ghost.on {
   50% { filter: brightness(1.35); }
 }
 
+@media (max-height: 560px) {
+  .sheet-hero { height: 96px; }
+  .sheet-body { padding-top: 12px; }
+  .sheet-body h2 { font-size: 1.1rem; }
+  .sheet-card { max-height: min(100vh, 100dvh); }
+}
+@media (max-width: 360px) {
+  body { padding-left: 12px; padding-right: 12px; }
+  h1 { font-size: 1.45rem; }
+  .grid { gap: 10px; }
+  .tile h3 { font-size: .78rem; }
+}
 @media (prefers-reduced-motion: reduce) {
   .scene-ring, .tile .art-rings::after, .avatar::before, .avatar::after,
   .coin-sway, .badge-card.is-empty .badge-disc, .pack-coin {

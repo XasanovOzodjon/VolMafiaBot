@@ -1,25 +1,34 @@
-import time
 from functools import wraps
-from telegram import Update
-from telegram.ext import CallbackContext
+import time
 
-# Oddiy throttling uchun global dict
-_user_last_time = {}
+from telegram import Update
+from telegram.ext import ContextTypes
+
+_user_last_time: dict[int, float] = {}
+
 
 def rate_limit(limit: int):
     def decorator(func):
         @wraps(func)
-        def wrapper(update: Update, context: CallbackContext, *args, **kwargs):
-            user_id = update.effective_user.id
+        async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+            user = update.effective_user
+            if not user:
+                return await func(update, context, *args, **kwargs)
             now = time.time()
-            last_time = _user_last_time.get(user_id, 0)
+            last_time = _user_last_time.get(user.id, 0)
             if now - last_time < limit:
-                update.message.reply_text("Too many requests!")
-                return
-            _user_last_time[user_id] = now
-            return func(update, context, *args, **kwargs)
-        return wrapper
-    return decorator
+                if update.effective_message:
+                    from i18n import t
 
-# python-telegram-bot uchun middleware klassi kerak emas.
-# Faqat yuqoridagi dekoratordan foydalaning va handler funksiyalaringizga qo'llang.
+                    store = context.application.bot_data.get("store")
+                    lang = "uz"
+                    if store:
+                        lang = await store.get_user_lang(user.id)
+                    await update.effective_message.reply_text(t("too_many_requests", lang))
+                return
+            _user_last_time[user.id] = now
+            return await func(update, context, *args, **kwargs)
+
+        return wrapper
+
+    return decorator

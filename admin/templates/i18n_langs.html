@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% set nav = "i18n" %}
+{% block body %}
+<h1>{{ t('nav_i18n') }}</h1>
+<p class="hint">{{ t('i18n_help') }}</p>
+<div class="card">
+  <table>
+    <tr><th></th><th>{{ t('lang') }}</th><th>code</th><th>{{ t('i18n_keys') }}</th><th></th></tr>
+    {% for row in langs %}
+    <tr>
+      <td>{{ row.flag }}</td>
+      <td>{{ row.name }}{% if row.private %} <span class="badge">{{ t('i18n_private') }}</span>{% endif %}</td>
+      <td><code>{{ row.code }}</code></td>
+      <td>{{ row.n }}</td>
+      <td>
+        <a class="btn ghost" href="/i18n/{{ row.code }}/edit">{{ t('edit') }}</a>
+        <form method="post" action="/i18n/{{ row.code }}/active" style="display:inline">
+          <input type="hidden" name="on" value="{{ 0 if row.active else 1 }}">
+          <button class="ghost" type="submit">{{ t('on') if row.active else t('off') }}</button>
+        </form>
+        {% if row.code not in ('uz','ru','en') %}
+        <form method="post" action="/i18n/{{ row.code }}/private" style="display:inline">
+          <input type="hidden" name="on" value="{{ 0 if row.private else 1 }}">
+          <button class="ghost" type="submit">{{ t('i18n_public') if row.private else t('i18n_private') }}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+<form method="post" action="/i18n/add" class="card" style="margin-top:16px">
+  <h2>{{ t('i18n_add') }}</h2>
+  <p class="hint">{{ t('i18n_add_help') }}</p>
+  <div class="row">
+    <div><label>code</label><input name="code" placeholder="tr" required></div>
+    <div><label>{{ t('title') }}</label><input name="name" placeholder="Türkçe"></div>
+    <div>
+      <label>{{ t('i18n_template') }}</label>
+      <select name="template">
+        {% for row in langs %}
+        <option value="{{ row.code }}" {% if row.code=='uz' %}selected{% endif %}>{{ row.flag }} {{ row.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <p>
+    <label><input type="checkbox" name="private" value="1"> {{ t('i18n_private') }}</label>
+  </p>
+  <p class="hint">{{ t('i18n_private_help') }}</p>
+  <p><button>{{ t('add') }}</button></p>
+</form>
+{% endblock %}

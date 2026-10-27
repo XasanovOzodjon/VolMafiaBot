@@ -1,12 +1,16 @@
-from telegram.ext import CommandHandler
+from telegram import Update
+from telegram.ext import ContextTypes
 
-def bot_help(update, context):
-    text = (
-        "Buyruqlar: ",
-        "/start - Botni ishga tushirish",
-        "/help - Yordam"
-    )
-    update.message.reply_text("\n".join(text))
+from handlers.common import store
+from i18n import t
 
-def register_handlers(dp):
-    dp.add_handler(CommandHandler("help", bot_help))
+
+async def bot_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat = update.effective_chat
+    user = update.effective_user
+    if chat and chat.type in ("group", "supergroup"):
+        lang = await store(context).get_chat_lang(chat.id)
+        await update.effective_message.reply_html(t("help_group", lang))
+        return
+    lang = await store(context).get_user_lang(user.id)
+    await update.effective_message.reply_html(t("help_private", lang))

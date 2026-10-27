@@ -105,11 +105,9 @@
       <em>{{ t('image') }}</em>
     </label>
     <input type="hidden" name="keep_image" id="shop-keep">
+    <input type="hidden" name="item_id" id="shop-id" value="">
     <div class="row">
-      <div><label>{{ t('shop_id') }}</label><input name="item_id" id="shop-id" required></div>
       <div><label>{{ t('emoji') }}</label><input name="emoji" id="shop-emoji" value="🛡️"></div>
-    </div>
-    <div class="row">
       <div><label>UZ</label><input name="title_uz" id="shop-title-uz" required></div>
       <div><label>RU</label><input name="title_ru" id="shop-title-ru" required></div>
     </div>
@@ -143,9 +141,9 @@
   <form id="pack-form" class="modal-panel" method="post" action="/shop/packs">
     <button type="button" class="modal-x" data-close>×</button>
     <h2 id="pack-modal-title">⭐ {{ t('add') }}</h2>
+    <input type="hidden" name="pack_id" id="pack-id" value="">
     <div class="drop pack-art"><img src="/static/shop/vcoin.jpg" alt="" id="pack-art-img"></div>
     <div class="row">
-      <div><label>ID</label><input name="pack_id" id="pack-id" required></div>
       <div>
         <label>Tur</label>
         <select name="kind" id="pack-kind">
@@ -177,9 +175,7 @@
       <em>{{ t('image') }}</em>
     </label>
     <input type="hidden" name="keep_image" id="swap-keep">
-    <div class="row">
-      <div><label>ID</label><input name="swap_id" id="swap-id" required></div>
-    </div>
+    <input type="hidden" name="swap_id" id="swap-id" value="">
     <div class="row">
       <div><label>{{ t('vcoin') }}</label><input type="number" name="vcoin" id="swap-vcoin" value="50" min="0"></div>
       <div><label>$</label><input type="number" name="money" id="swap-money" value="50" min="0"></div>
@@ -194,5 +190,5 @@
 <script type="application/json" id="shop-items">{{ items|tojson }}</script>
 <script type="application/json" id="pack-items">{{ packs|tojson }}</script>
 <script type="application/json" id="swap-items">{{ swaps|tojson }}</script>
-<script src="/static/shop.js?v=4"></script>
+<script src="/static/shop.js?v=5"></script>
 {% endblock %}

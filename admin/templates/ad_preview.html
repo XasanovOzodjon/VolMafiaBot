@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% set nav = "ads" %}
+{% block body %}
+<h1>{{ t('preview') }}</h1>
+{% if err == 'need_preview' %}<div class="flash err">{{ t('need_preview') }}</div>{% endif %}
+<div class="compose">
+  <div class="card">
+    <p>{{ t('target') }}: <b>{{ ad.target }}</b> · <span id="aud-n">{{ n }}</span></p>
+    <p>{{ t('status') }}: <b id="ad-status">{{ ad.status }}</b></p>
+    <div class="progress"><span id="ad-bar" style="width:0"></span></div>
+    <p class="meta-line" id="ad-stats">
+      {% if ad.stats %}{{ ad.stats.ok }}/{{ ad.stats.total }} ok · {{ ad.stats.fail }} fail{% endif %}
+    </p>
+    <p class="hint">{{ t('preview_lang_multi') if lang_mode=='multi' else t('preview_lang_single') }}</p>
+    {% if lang_mode == 'multi' %}
+    <div class="tabs" id="preview-langs">
+      <button type="button" class="ghost on" data-show-lang="uz">UZ</button>
+      <button type="button" class="ghost" data-show-lang="ru">RU</button>
+      <button type="button" class="ghost" data-show-lang="en">EN</button>
+    </div>
+    {% endif %}
+    <div class="actions">
+      <a class="btn ghost" href="/ads/{{ ad.id }}/edit">{{ t('edit') }}</a>
+      <form method="post" action="/ads/{{ ad.id }}/test">
+        <button class="ghost" type="submit">{{ t('test_me') }}</button>
+      </form>
+      <form method="post" action="/ads/{{ ad.id }}/send" onsubmit="return confirm('{{ t('confirm_send') }}?')">
+        <button type="submit">{{ t('send_now') }}</button>
+      </form>
+      <form method="post" action="/ads/{{ ad.id }}/cancel">
+        <button class="danger" type="submit">{{ t('cancel') }}</button>
+      </form>
+    </div>
+  </div>
+  <div class="preview-col">
+    {% include "tg_chat.html" %}
+  </div>
+</div>
+{% endblock %}
+{% block extra %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap">
+<script type="application/json" id="ad-payload">{{ preview_payload|tojson }}</script>
+<script src="/static/ads.js?v=tg11"></script>
+<script>
+const adId = {{ ad.id|tojson }};
+const statusEl = document.getElementById('ad-status');
+const bar = document.getElementById('ad-bar');
+const stats = document.getElementById('ad-stats');
+async function tick() {
+  const r = await fetch('/api/ads/' + adId);
+  if (!r.ok) return;
+  const d = await r.json();
+  statusEl.textContent = d.status || '';
+  const st = d.stats || {};
+  const total = st.total || 0, done = (st.ok || 0) + (st.fail || 0);
+  bar.style.width = (total ? Math.round(100 * done / total) : 0) + '%';
+  stats.textContent = (st.ok || 0) + '/' + total + ' ok · ' + (st.fail || 0) + ' fail';
+  if (d.status === 'sending' || d.status === 'scheduled') setTimeout(tick, 900);
+}
+tick();
+</script>
+{% endblock %}

@@ -227,6 +227,15 @@ def normalize_stats(data: dict | None) -> dict:
         "armed_active": bool(data.get("armed_active")),
         "armed_chosen": bool(data.get("armed_chosen")),
         "name": str(data.get("name") or ""),
+        "daily_streak": int(data.get("daily_streak") or 0),
+        "last_daily_ts": int(data.get("last_daily_ts") or 0),
+        "ref_by": int(data.get("ref_by") or 0) if data.get("ref_by") else None,
+        "ref_count": int(data.get("ref_count") or 0),
+        "ref_earnings": int(data.get("ref_earnings") or 0),
+        "ref_rewarded": bool(data.get("ref_rewarded")),
+        "boxes_opened": int(data.get("boxes_opened") or 0),
+        "is_vip": bool(data.get("is_vip")),
+        "vip_until": int(data.get("vip_until") or 0),
     }
 
 
@@ -763,34 +772,42 @@ class AdminData:
         return items
 
     async def buy_item(self, user_id: int, item_id: str, pay: str) -> tuple[bool, str, dict]:
-        item = await self.shop_item(item_id)
-        if not item or not item.get("enabled", True):
-            return False, "missing", await self.get_stats(user_id)
-        stats = await self.get_stats(user_id)
-        pay = "vcoin" if pay in ("vcoin", "gems") else "money"
-        price = int(item.get("vcoin") or 0) if pay == "vcoin" else int(item.get("money") or 0)
-        wallet = "vcoin" if pay == "vcoin" else "money"
-        if price <= 0:
-            return False, "no_price", stats
-        if int(stats.get(wallet) or 0) < price:
-            return False, "broke", stats
-        stats[wallet] = int(stats[wallet]) - price
-        field = str(item.get("field") or "")
-        if field in SHOP_FIELDS:
-            stats[field] = int(stats.get(field) or 0) + int(item.get("amount") or 1)
-        stats = await self.save_stats(user_id, stats)
-        await self.add_econ_log(
-            user_id,
-            kind="shop_buy",
-            money=(-price if wallet == "money" else None),
-            vcoin=(-price if wallet == "vcoin" else None),
-            item=item_id,
-            pay=wallet,
-        )
-        if field in SHOP_FIELDS:
-            await self._bump_buy(user_id, field)
-            await self.evaluate_auto_shart(user_id)
-        return True, "ok", await self.get_stats(user_id)
+        lock = self.redis.lock(f"mafia:lock:user:{user_id}", timeout=10, blocking_timeout=5)
+        await lock.acquire()
+        try:
+            item = await self.shop_item(item_id)
+            if not item or not item.get("enabled", True):
+                return False, "missing", await self.get_stats(user_id)
+            stats = await self.get_stats(user_id)
+            pay = "vcoin" if pay in ("vcoin", "gems") else "money"
+            price = int(item.get("vcoin") or 0) if pay == "vcoin" else int(item.get("money") or 0)
+            wallet = "vcoin" if pay == "vcoin" else "money"
+            if price <= 0:
+                return False, "no_price", stats
+            if int(stats.get(wallet) or 0) < price:
+                return False, "broke", stats
+            stats[wallet] = int(stats[wallet]) - price
+            field = str(item.get("field") or "")
+            if field in SHOP_FIELDS:
+                stats[field] = int(stats.get(field) or 0) + int(item.get("amount") or 1)
+            stats = await self.save_stats(user_id, stats)
+            await self.add_econ_log(
+                user_id,
+                kind="shop_buy",
+                money=(-price if wallet == "money" else None),
+                vcoin=(-price if wallet == "vcoin" else None),
+                item=item_id,
+                pay=wallet,
+            )
+            if field in SHOP_FIELDS:
+                await self._bump_buy(user_id, field)
+                await self.evaluate_auto_shart(user_id)
+            return True, "ok", stats
+        finally:
+            try:
+                await lock.release()
+            except Exception:
+                pass
 
     async def arm_shop_item(
         self, user_id: int, field: str
@@ -1073,27 +1090,35 @@ class AdminData:
         return items
 
     async def swap_vcoin(self, user_id: int, offer_id: str) -> tuple[bool, str, dict]:
-        offer = await self.swap_offer(offer_id)
-        stats = await self.get_stats(user_id)
-        if not offer:
-            return False, "missing", stats
-        cost = int(offer.get("vcoin") or 0)
-        gain = int(offer.get("money") or 0)
-        if cost <= 0 or gain <= 0:
-            return False, "missing", stats
-        if int(stats.get("vcoin") or 0) < cost:
-            return False, "broke", stats
-        stats["vcoin"] = int(stats["vcoin"]) - cost
-        stats["money"] = int(stats.get("money") or 0) + gain
-        stats = await self.save_stats(user_id, stats)
-        await self.add_econ_log(
-            user_id,
-            kind="swap",
-            vcoin=-cost,
-            money=gain,
-            item=offer_id,
-        )
-        return True, "ok", stats
+        lock = self.redis.lock(f"mafia:lock:user:{user_id}", timeout=10, blocking_timeout=5)
+        await lock.acquire()
+        try:
+            offer = await self.swap_offer(offer_id)
+            stats = await self.get_stats(user_id)
+            if not offer:
+                return False, "missing", stats
+            cost = int(offer.get("vcoin") or 0)
+            gain = int(offer.get("money") or 0)
+            if cost <= 0 or gain <= 0:
+                return False, "missing", stats
+            if int(stats.get("vcoin") or 0) < cost:
+                return False, "broke", stats
+            stats["vcoin"] = int(stats["vcoin"]) - cost
+            stats["money"] = int(stats.get("money") or 0) + gain
+            stats = await self.save_stats(user_id, stats)
+            await self.add_econ_log(
+                user_id,
+                kind="swap",
+                vcoin=-cost,
+                money=gain,
+                item=offer_id,
+            )
+            return True, "ok", stats
+        finally:
+            try:
+                await lock.release()
+            except Exception:
+                pass
 
     async def stars_paid(self, charge_id: str) -> bool:
         if not charge_id:

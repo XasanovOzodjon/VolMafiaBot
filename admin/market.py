@@ -249,6 +249,48 @@ def register(app: FastAPI) -> None:
         ok, reason, _stats = await _store(request).arm_shop_item(who["id"], field)
         return JSONResponse({"ok": ok, "reason": reason})
 
+    @app.post("/api/market/claim_bonus")
+    async def market_claim_bonus(request: Request):
+        body = await _json_body(request)
+        who = _init_user(request, body)
+        if not who:
+            return JSONResponse({"ok": False, "error": "auth"}, status_code=401)
+        st = _store(request)
+        ok, status, data = await st.claim_daily_bonus(who["id"])
+        stats = await st.get_stats(who["id"])
+        return JSONResponse({
+            "ok": ok,
+            "status": status,
+            "data": data,
+            "stats": {
+                "money": int(stats.get("money") or 0),
+                "vcoin": int(stats.get("vcoin") or 0),
+                "streak": int(stats.get("daily_streak") or 0),
+            },
+        })
+
+    @app.post("/api/market/open_box")
+    async def market_open_box(request: Request):
+        body = await _json_body(request)
+        who = _init_user(request, body)
+        if not who:
+            return JSONResponse({"ok": False, "error": "auth"}, status_code=401)
+        st = _store(request)
+        ok, status, won = await st.open_lucky_box(who["id"])
+        stats = await st.get_stats(who["id"])
+        return JSONResponse({
+            "ok": ok,
+            "status": status,
+            "won": won,
+            "stats": {
+                "money": int(stats.get("money") or 0),
+                "vcoin": int(stats.get("vcoin") or 0),
+                "protection": int(stats.get("protection") or 0),
+                "documents": int(stats.get("documents") or 0),
+                "active_role": int(stats.get("active_role") or 0),
+            },
+        })
+
     @app.post("/api/market/pick")
     async def market_pick(request: Request):
         body = await _json_body(request)

@@ -301,6 +301,10 @@ function renderProfile() {
         <div class="badge-grid">${badgeCards}</div>
         ${badges.length ? "" : `<p class="hint">${esc(tx("profile_badges_empty", "Hali Badge yo'q."))}</p>`}
       </div>
+      <div style="display:flex;gap:8px;margin-top:14px;width:100%;">
+        <button type="button" class="buy" style="background:linear-gradient(135deg,#059669,#10b981);flex:1;" data-action="claim-bonus">🎁 Bonus</button>
+        <button type="button" class="buy" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);flex:1;" data-action="open-box">📦 Sandiq</button>
+      </div>
       <button type="button" class="buy" data-goto="topup">${esc(tx("topup", "To'ldirish"))}</button>
     </article>`;
 }
@@ -555,6 +559,41 @@ document.body.addEventListener("click", async (e) => {
   }
   const btn = e.target.closest("button");
   if (!btn) return;
+  if (btn.dataset.action === "claim-bonus") {
+    btn.disabled = true;
+    try {
+      const res = await api("/api/market/claim_bonus");
+      if (res.ok) {
+        show(`🎁 +${res.data.reward.money}$ ${res.data.reward.vcoin ? '+' + res.data.reward.vcoin + ' Vcoin' : ''}! (${res.data.streak}-kun)`, true);
+        await load();
+      } else {
+        if (res.status && res.status.startsWith("wait_")) {
+          const parts = res.status.split("_");
+          show(`⏳ Bugun olingan! (${parts[1]}s ${parts[2]}d qoldi)`, false);
+        } else {
+          show("❌ Bonus olib bo'lmadi", false);
+        }
+      }
+    } finally {
+      btn.disabled = false;
+    }
+    return;
+  }
+  if (btn.dataset.action === "open-box") {
+    btn.disabled = true;
+    try {
+      const res = await api("/api/market/open_box");
+      if (res.ok) {
+        show(`✨ Sandiq ochildi: ${res.won.text}!`, true);
+        await load();
+      } else {
+        show(res.status === "broke" ? "❌ 10 Vcoin yetarli emas!" : "Xatolik yuz berdi", false);
+      }
+    } finally {
+      btn.disabled = false;
+    }
+    return;
+  }
   if (btn.dataset.use) {
     const data = await api("/api/market/use", { field: btn.dataset.use });
     show(

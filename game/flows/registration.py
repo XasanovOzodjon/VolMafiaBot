@@ -280,8 +280,20 @@ class RegistrationFlow:
     async def handle_start_payload(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> bool:
-        kind, chat_id = parse_start_payload(context.args)
         user = update.effective_user
+        if context.args and context.args[0].startswith("ref_") and user:
+            try:
+                ref_id = int(context.args[0].replace("ref_", ""))
+                bound = await self.store.bind_referral(user.id, ref_id)
+                if bound:
+                    await update.effective_message.reply_html(
+                        "🎉 <b>Xush kelibsiz!</b>\n"
+                        "Do‘stingiz taklifi orqali qo‘shildingiz va hisobingizga <b>25 $</b> xush kelibsiz bonusi qo‘shildi!"
+                    )
+            except ValueError:
+                pass
+
+        kind, chat_id = parse_start_payload(context.args)
         if user and chat_id is not None and await self.store.get(chat_id):
             await self.store.ensure_user_lang_from_chat(user.id, chat_id)
         if kind == "j":

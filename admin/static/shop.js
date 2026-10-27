@@ -69,7 +69,6 @@
     f.reset();
     document.getElementById("shop-modal-title").textContent = item ? "Tahrirlash" : "Qo'shish";
     const id = document.getElementById("shop-id");
-    id.readOnly = Boolean(item);
     if (item) {
       id.value = item.id || "";
       document.getElementById("shop-emoji").value = item.emoji || "•";
@@ -90,7 +89,7 @@
       setPreview("shop-preview", "shop-preview-emo", "", "🛡️");
     }
     openModal("shop-modal");
-    id.focus();
+    document.getElementById("shop-title-uz")?.focus();
   }
 
   function fillPack(item) {
@@ -98,7 +97,6 @@
     if (!f) return;
     f.reset();
     const id = document.getElementById("pack-id");
-    id.readOnly = Boolean(item);
     document.getElementById("pack-modal-title").textContent = item ? "Tahrirlash" : "Qo'shish";
     if (item) {
       id.value = item.id || "";
@@ -118,7 +116,7 @@
       if (art) art.src = "/static/shop/vcoin.jpg";
     }
     openModal("pack-modal");
-    id.focus();
+    document.getElementById("pack-amount")?.focus();
   }
 
   function fillGift(item) {
@@ -127,7 +125,6 @@
     f.reset();
     document.getElementById("gift-modal-title").textContent = item ? "Tahrirlash" : "Qo'shish";
     const id = document.getElementById("gift-id");
-    id.readOnly = Boolean(item);
     if (item) {
       id.value = item.id || "";
       document.getElementById("gift-emoji").value = item.emoji || "🎁";
@@ -146,7 +143,7 @@
       setPreview("gift-preview", "gift-preview-emo", "", "🎁");
     }
     openModal("gift-modal");
-    id.focus();
+    document.getElementById("gift-title-uz")?.focus();
   }
 
   function fillSwap(item) {
@@ -154,7 +151,6 @@
     if (!f) return;
     f.reset();
     const id = document.getElementById("swap-id");
-    id.readOnly = Boolean(item);
     document.getElementById("swap-modal-title").textContent = item ? "Tahrirlash" : "Qo'shish";
     if (item) {
       id.value = item.id || "";
@@ -169,7 +165,7 @@
       setPreview("swap-preview", "swap-preview-emo", "/static/shop/card.jpg", "💵");
     }
     openModal("swap-modal");
-    id.focus();
+    document.getElementById("swap-vcoin")?.focus();
   }
 
   document.getElementById("shop-add")?.addEventListener("click", () => fillShop(null));

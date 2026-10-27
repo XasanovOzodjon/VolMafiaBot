@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% set nav = "gifts" %}
+{% block body %}
+<div class="catalog-head">
+  <div>
+    <p class="kicker">VOL MARKET</p>
+    <h1>{{ t('nav_gifts') }}</h1>
+  </div>
+  <button type="button" class="btn" id="gift-add">+ {{ t('add') }}</button>
+</div>
+<div class="catalog">
+  {% for it in gifts %}
+  <article class="product" data-open="gift" data-id="{{ it.id }}">
+    <div class="product-art">
+      <img src="{{ it.image }}" alt="" onerror="this.style.display='none'">
+      <span class="product-emo">{{ it.emoji }}</span>
+      {% if not it.enabled %}<span class="badge product-off">off</span>{% endif %}
+    </div>
+    <div class="product-body">
+      <h3>{{ it.title_uz }}</h3>
+      <p>{{ it.desc_uz }}</p>
+      <div class="product-price">🪙 {{ it.vcoin }}</div>
+      <div class="product-acts">
+        <button type="button" class="ghost" data-open="gift" data-id="{{ it.id }}">{{ t('edit') }}</button>
+        <form method="post" action="/gifts/{{ it.id }}/delete" onsubmit="return confirm('?')">
+          <button class="ghost">{{ t('delete') }}</button>
+        </form>
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+
+<h2 style="margin-top:36px">{{ t('orders') }}</h2>
+<div class="card">
+  {% if not orders %}<p>{{ t('empty') }}</p>{% else %}
+  <table>
+    <tr>
+      <th>{{ t('when') }}</th>
+      <th>{{ t('who') }}</th>
+      <th>{{ t('title') }}</th>
+      <th>{{ t('vcoin') }}</th>
+      <th>{{ t('status') }}</th>
+      <th></th>
+    </tr>
+    {% for o in orders %}
+    <tr>
+      <td>{{ o.when }}</td>
+      <td><a href="/users/{{ o.user_id }}">{{ o.name or o.user_id }}</a>{% if o.username %} @{{ o.username }}{% endif %}</td>
+      <td>{{ o.emoji }} {{ o.title }}</td>
+      <td>{{ o.vcoin }}</td>
+      <td>{{ o.status }}</td>
+      <td>
+        {% if o.status == 'new' %}
+        <form method="post" action="/gifts/orders/{{ o.id }}/done" style="display:inline">
+          <button>{{ t('fulfill') }}</button>
+        </form>
+        <form method="post" action="/gifts/orders/{{ o.id }}/cancel" style="display:inline">
+          <button class="ghost">{{ t('refund') }}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra %}
+<div class="modal" id="gift-modal" hidden>
+  <div class="modal-back" data-close></div>
+  <form id="gift-form" class="modal-panel" method="post" action="/gifts/save" enctype="multipart/form-data">
+    <button type="button" class="modal-x" data-close>×</button>
+    <h2 id="gift-modal-title">{{ t('add') }}</h2>
+    <label class="drop">
+      <img id="gift-preview" alt="">
+      <span id="gift-preview-emo">🎁</span>
+      <input type="file" name="image" id="gift-image" accept="image/png,image/jpeg,image/webp,image/gif">
+      <em>{{ t('image') }}</em>
+    </label>
+    <input type="hidden" name="keep_image" id="gift-keep">
+    <input type="hidden" name="gift_id" id="gift-id" value="">
+    <div class="row">
+      <div><label>{{ t('emoji') }}</label><input name="emoji" id="gift-emoji" value="🎁"></div>
+      <div><label>UZ</label><input name="title_uz" id="gift-title-uz" required></div>
+      <div><label>RU</label><input name="title_ru" id="gift-title-ru" required></div>
+    </div>
+    <label>EN</label><input name="title_en" id="gift-title-en">
+    <label>UZ desc</label><input name="desc_uz" id="gift-desc-uz">
+    <label>RU desc</label><input name="desc_ru" id="gift-desc-ru">
+    <label>{{ t('vcoin') }}</label><input type="number" name="vcoin" id="gift-vcoin" value="1000">
+    <label class="check"><input type="checkbox" name="enabled" id="gift-enabled" value="1" checked> {{ t('enabled') }}</label>
+    <p class="modal-acts">
+      <button type="button" class="ghost" data-close>{{ t('cancel') }}</button>
+      <button>{{ t('save') }}</button>
+    </p>
+  </form>
+</div>
+<script type="application/json" id="gift-items">{{ gifts|tojson }}</script>
+<script src="/static/shop.js?v=5"></script>
+{% endblock %}

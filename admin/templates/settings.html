@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% set nav = "settings" %}
+{% block body %}
+<h1>{{ t('nav_settings') }}</h1>
+<div class="card">
+  <h2>{{ t('maintenance') }}</h2>
+  <p>{{ t('on') if maintenance else t('off') }}</p>
+  <form method="post" action="/settings/maintenance">
+    <input type="hidden" name="on" value="{{ '0' if maintenance else '1' }}">
+    <button>{{ t('off') if maintenance else t('on') }}</button>
+  </form>
+</div>
+<div class="card" style="margin-top:16px">
+  <h2>{{ t('gifs') }}</h2>
+  <div class="row">
+    <div>
+      <b>{{ t('night') }}</b>
+      {% if night %}<p><img src="/media/gif/night" alt="" style="max-width:220px;border-radius:12px"></p>{% endif %}
+      <form method="post" action="/settings/gif" enctype="multipart/form-data">
+        <input type="hidden" name="kind" value="night">
+        <label>{{ t('file_id') }}</label>
+        <input name="file_id" value="{{ night or '' }}">
+        <input type="file" name="media" accept="image/gif,video/mp4">
+        <p><button>{{ t('save') }}</button></p>
+      </form>
+    </div>
+    <div>
+      <b>{{ t('day') }}</b>
+      {% if day %}<p><img src="/media/gif/day" alt="" style="max-width:220px;border-radius:12px"></p>{% endif %}
+      <form method="post" action="/settings/gif" enctype="multipart/form-data">
+        <input type="hidden" name="kind" value="day">
+        <label>{{ t('file_id') }}</label>
+        <input name="file_id" value="{{ day or '' }}">
+        <input type="file" name="media" accept="image/gif,video/mp4">
+        <p><button>{{ t('save') }}</button></p>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

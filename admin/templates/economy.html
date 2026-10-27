@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% set nav = "econ" %}
+{% block body %}
+<h1>{{ t('nav_econ') }}</h1>
+<form>
+  <div class="row">
+    <input name="user" value="{{ uid or '' }}" placeholder="user id">
+    <button>{{ t('search') }}</button>
+  </div>
+</form>
+<div class="card" style="margin-top:16px">
+  {% if not logs %}<p>{{ t('audit_empty') }}</p>{% else %}
+  <table>
+    <tr>
+      <th>{{ t('when') }}</th>
+      <th>{{ t('who') }}</th>
+      <th>{{ t('kind') }}</th>
+      <th></th>
+    </tr>
+    {% for row in logs %}
+    <tr>
+      <td>{{ row.when }}</td>
+      <td><a href="/users/{{ row.user_id }}">{{ row.user_id }}</a></td>
+      <td>{{ row.kind }}</td>
+      <td class="meta-line">
+        {% if row.money %} $ {{ row.money }}{% endif %}
+        {% if row.vcoin %} 🪙 {{ row.vcoin }}{% endif %}
+        {% if row.item %} {{ row.item }}{% endif %}
+        {% if row.pay %} {{ row.pay }}{% endif %}
+        {% if row.detail %} {{ row.detail }}{% endif %}
+        {% if row.order_id %} #{{ row.order_id }}{% endif %}
+        {% if row.chat_id %} chat {{ row.chat_id }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

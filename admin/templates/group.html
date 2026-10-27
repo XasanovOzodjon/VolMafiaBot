@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% set nav = "groups" %}
+{% block body %}
+<p><a href="/groups">← {{ t('nav_groups') }}</a></p>
+<h1>{{ g.title }}</h1>
+<p class="who">ID {{ g.id }} {% if g.username %}· @{{ g.username }}{% endif %}
+  {% if banned %}<span class="badge">{{ t('banned') }}</span>{% endif %}
+</p>
+<div class="grid">
+  <div class="card"><div class="k">{{ t('members') }}</div><div class="v">{{ members }}</div></div>
+  <div class="card"><div class="k">{{ t('known') }}</div><div class="v">{{ g.known }}</div></div>
+  <div class="card"><div class="k">{{ t('games') }}</div><div class="v">{{ g.stats.games }}</div></div>
+  <div class="card"><div class="k">{{ t('lang') }}</div><div class="v">{{ g.settings.lang }}</div></div>
+</div>
+{% if live %}
+<div class="card" style="margin-top:14px">
+  <b class="live">{{ t('live') }}</b> — {{ live.phase }} · {{ live.alive }}/{{ live.players }}
+  {% if live.test %} · test{% endif %}
+  {% if can('stop') %}
+  <form method="post" action="/groups/{{ g.id }}/stop" style="display:inline;margin-left:12px">
+    <button>{{ t('stop') }}</button>
+  </form>
+  {% endif %}
+  {% if can('mutate') and skip_to %}
+  <form method="post" action="/groups/{{ g.id }}/skip" style="display:inline;margin-left:8px" onsubmit="return confirm({{ t('skip_warn')|tojson }})">
+    <button type="submit">{{ t('skip_phase') }} → {{ t('skip_' + skip_to) }}</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+{% if roster %}
+<div class="card" style="margin-top:14px">
+  <h2>{{ t('live_players') }}</h2>
+  <p class="hint">{{ t('night_n') }} {{ live.night if live else '—' }}</p>
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t('player_name') }}</th>
+        <th>{{ t('role') }}</th>
+        <th>{{ t('status') }}</th>
+        <th>{{ t('actions') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in roster %}
+      <tr class="{{ 'dead' if not p.alive else '' }}">
+        <td>
+          <a href="/users/{{ p.id }}">{{ p.name }}</a>
+          {% if p.username %}<span class="who">@{{ p.username }}</span>{% endif %}
+          {% if p.host %}<span class="badge">{{ t('host') }}</span>{% endif %}
+          {% if p.bot %}<span class="badge">{{ t('bot') }}</span>{% endif %}
+        </td>
+        <td>{{ p.role_label }}</td>
+        <td>{{ t('alive') if p.alive else t('dead') }}</td>
+        <td>
+          <div class="acts">
+            {% if can('mutate') %}
+            <form method="post" action="/groups/{{ g.id }}/players/{{ p.id }}/role">
+              <select name="role">
+                {% for r in roles %}
+                <option value="{{ r.value }}" {% if r.value==p.role %}selected{% endif %}>{{ r.title }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit">{{ t('set_role') }}</button>
+            </form>
+            {% endif %}
+            {% if can('stop') and p.alive %}
+            <form method="post" action="/groups/{{ g.id }}/players/{{ p.id }}/kick" onsubmit="return confirm({{ t('confirm_remove')|tojson }})">
+              <button type="submit" class="danger">{{ t('remove_player') }}</button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% if invite %}<p>{{ t('link') }}: <a href="{{ invite }}" target="_blank">{{ invite }}</a></p>{% endif %}
+
+{% if can('mutate') %}
+<div class="card" style="margin-top:14px">
+  <h2>{{ t('nav_settings') }}</h2>
+  <form method="post" action="/groups/{{ g.id }}/settings">
+    <div class="row">
+      <div>
+        <label>{{ t('lang') }}</label>
+        <select name="lang">
+          {% for row in langs %}
+          <option value="{{ row.code }}" {% if g.settings.lang==row.code %}selected{% endif %}>
+            {{ row.code }}{% if row.private %} · {{ t('i18n_private') }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>{{ t('auto') }}</label>
+        <select name="auto_start">
+          <option value="1" {% if g.settings.auto_start %}selected{% endif %}>{{ t('on') }}</option>
+          <option value="" {% if not g.settings.auto_start %}selected{% endif %}>{{ t('off') }}</option>
+        </select>
+      </div>
+    </div>
+    <p><button>{{ t('save') }}</button></p>
+  </form>
+</div>
+{% endif %}
+
+<div class="row" style="margin-top:14px">
+  <div class="card">
+    <h2>{{ t('admins') }}</h2>
+    {% for a in admins %}
+      <div><a href="/users/{{ a.id }}">{{ a.name }}</a> · {{ a.status }}</div>
+    {% else %}{{ t('none') }}{% endfor %}
+  </div>
+  <div class="card">
+    <h2>{{ t('active') }}</h2>
+    {% for u in active %}
+      <div><a href="/users/{{ u.id }}">{{ u.name }}</a></div>
+    {% else %}{{ t('none') }}{% endfor %}
+  </div>
+</div>
+
+{% if can('ban') %}
+<div class="card" style="margin-top:14px">
+  <form method="post" action="/groups/{{ g.id }}/ban" style="display:inline">
+    <input type="hidden" name="on" value="{{ 0 if banned else 1 }}">
+    <button class="ghost">{{ t('unban') if banned else t('ban') }}</button>
+  </form>
+  <form method="post" action="/groups/{{ g.id }}/kick" style="display:inline" onsubmit="return confirm('?')">
+    <button class="danger">{{ t('kick') }}</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

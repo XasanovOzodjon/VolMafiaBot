@@ -280,6 +280,17 @@ class ChatFlow:
             if not snapshot.test_mode:
                 payouts = await self.store.record_finished_game(snapshot, winner_code)
                 for player, money, won, stats in payouts:
+                    ref_id, ref_prize = await self.store.reward_referrer_if_eligible(player.user_id)
+                    if ref_id and ref_prize:
+                        try:
+                            await send_html(
+                                context.bot,
+                                ref_id,
+                                f"🎉 <b>Do‘stingiz ({html.escape(player.full_name)}) o‘yinda ishtirok etdi!</b>\n"
+                                f"Sizga referal mukofoti berildi: <b>+{ref_prize['money']} $</b> va <b>+{ref_prize['vcoin']} Vcoin</b>!",
+                            )
+                        except Exception:
+                            pass
                     if money <= 0:
                         continue
                     user_lang = await self.store.get_user_lang(player.user_id)
