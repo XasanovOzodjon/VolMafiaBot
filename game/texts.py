@@ -240,8 +240,9 @@ _CAUSE_ROLE = {
     "sheriff": Role.SHERIF,
     "manyak": Role.MANYAK,
     "potrashitel": Role.POTRASHITEL,
+    "yakudza": Role.YAKUDZA,
 }
-_CAUSE_ORDER = ("sheriff", "potrashitel", "manyak", "mafia")
+_CAUSE_ORDER = ("sheriff", "potrashitel", "manyak", "mafia", "yakudza")
 
 
 def night_kill_text(player: Player, causes: list[str], lang: str = "uz") -> str:
@@ -334,18 +335,12 @@ def vote_board(game: Game, seconds: int) -> str:
 
 
 def vote_cast_text(game: Game, voter: Player, target) -> str:
-    lang = _lang(game)
     if target == "skip":
-        return t("vote_cast_skip", lang, voter=mention(voter))
+        return f"{mention(voter)} - Skip"
     chosen = game.players.get(int(target))
     if not chosen:
-        return t("vote_cast_skip", lang, voter=mention(voter))
-    return t(
-        "vote_cast",
-        lang,
-        voter=mention(voter),
-        target=mention(chosen),
-    )
+        return f"{mention(voter)} - Skip"
+    return f"{mention(voter)} - {mention(chosen)}"
 
 
 def lynch_score_text(

@@ -132,7 +132,38 @@ class EngineBase:
             if game:
                 game.status_message_id = message_id
 
-    async def notify_new_don(self, context: ContextTypes.DEFAULT_TYPE, player, lang: str) -> None:
-        if not player or player.is_bot:
+    async def notify_new_don(
+        self,
+        context: ContextTypes.DEFAULT_TYPE,
+        player,
+        lang: str,
+        chat_id: int | None = None,
+    ) -> None:
+        if not player:
             return
-        await send_html(context.bot, player.user_id, t("new_don_dm", lang))
+        if chat_id:
+            try:
+                await send_html(context.bot, chat_id, t("new_don_public", lang))
+            except Exception:
+                pass
+        if not player.is_bot:
+            try:
+                await send_html(context.bot, player.user_id, t("new_don_dm", lang))
+            except Exception:
+                pass
+        if chat_id:
+            try:
+                game = await self.store.get(chat_id)
+                if game:
+                    from game.texts import mention
+
+                    don_name = mention(player)
+                    for m in game.mafia(alive_only=True):
+                        if m.user_id != player.user_id and not m.is_bot:
+                            await send_html(
+                                context.bot,
+                                m.user_id,
+                                t("new_don_team", lang, name=don_name),
+                            )
+            except Exception:
+                pass

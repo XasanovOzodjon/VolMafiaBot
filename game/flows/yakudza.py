@@ -20,10 +20,13 @@ from keyboards.inline.game import night_targets
 class YakudzaFlow:
     async def start_yakudza(self, context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:
         self.cancel_jobs(context, chat_id, "night", "day", "vote", "confirm", "btalk0", "btalk1", "btalk2")
+        choice_mode = False
+        pending_id = None
         async with self.store.locked(chat_id) as game:
             if not game or not game.yakudza_pending_id:
                 return
             game.phase = Phase.YAKUDZA
+            choice_mode = bool(game.yakudza_choice_mode)
             pending_id = game.yakudza_pending_id
 
         game = await self.store.get(chat_id)
@@ -33,19 +36,80 @@ class YakudzaFlow:
         if not yak:
             await self._after_yakudza(context, chat_id)
             return
+
+        seconds = 40 if choice_mode else config.YAKUDZA_SECONDS
+
+        if choice_mode:
+            await send_html(
+                context.bot,
+                chat_id,
+                t("yakudza_final_group_start", game.lang),
+            )
+
         if yak.is_bot:
+            if choice_mode:
+                import random
+
+                alive = game.alive()
+                target_p = random.choice(alive) if alive else None
+                async with self.store.locked(chat_id) as g:
+                    if g and target_p and target_p.user_id in g.players:
+                        g.players[target_p.user_id].alive = False
+                        g.yakudza_pending_id = None
+                        g.yakudza_choice_mode = False
+                if target_p:
+                    await send_html(
+                        context.bot,
+                        chat_id,
+                        t("yakudza_final_group_chosen", game.lang, name=mention(target_p)),
+                    )
+                game_after = await self.store.get(chat_id)
+                w = winner(game_after) if game_after else None
+                await self.end_game(context, chat_id, w)
+                return
             self.schedule(
-                context, yakudza_timeout, config.YAKUDZA_SECONDS, chat_id, "yakudza"
+                context, yakudza_timeout, seconds, chat_id, "yakudza"
             )
             self.arm_test_bots(context, chat_id, "yakudza")
             return
+
+        kb = (
+            night_targets(game, "n:yk", yak.user_id, include_self=False, skip=False)
+            if choice_mode
+            else night_targets(game, "n:yk", yak.user_id, include_self=False, skip=True)
+        )
+        prompt_text = (
+            t("yakudza_final_prompt", game.lang)
+            if choice_mode
+            else t("yakudza_prompt", game.lang)
+        )
         sent = await send_html(
             context.bot,
             yak.user_id,
-            t("yakudza_prompt", game.lang),
-            night_targets(game, "n:yk", yak.user_id, include_self=False, skip=True),
+            prompt_text,
+            kb,
         )
         if not sent:
+            if choice_mode:
+                import random
+
+                alive = game.alive()
+                target_p = random.choice(alive) if alive else None
+                async with self.store.locked(chat_id) as g:
+                    if g and target_p and target_p.user_id in g.players:
+                        g.players[target_p.user_id].alive = False
+                        g.yakudza_pending_id = None
+                        g.yakudza_choice_mode = False
+                if target_p:
+                    await send_html(
+                        context.bot,
+                        chat_id,
+                        t("yakudza_final_group_timeout", game.lang, name=mention(target_p)),
+                    )
+                game_after = await self.store.get(chat_id)
+                w = winner(game_after) if game_after else None
+                await self.end_game(context, chat_id, w)
+                return
             await send_html(
                 context.bot,
                 chat_id,
@@ -54,7 +118,7 @@ class YakudzaFlow:
             await self._after_yakudza(context, chat_id)
             return
         self.schedule(
-            context, yakudza_timeout, config.YAKUDZA_SECONDS, chat_id, "yakudza"
+            context, yakudza_timeout, seconds, chat_id, "yakudza"
         )
 
     async def on_yakudza_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -67,39 +131,96 @@ class YakudzaFlow:
             await answer_query(query, t("game_not_found", lang), alert=True)
             return
         done = False
+        final_choice = False
+        target_player = None
+
         async with self.store.locked(chat_id) as game:
-            if not game or game.phase != Phase.YAKUDZA:
-                await answer_query(query, t("not_revenge_time", game.lang), alert=True)
+            if not game:
+                await answer_query(query, t("game_not_found", lang), alert=True)
                 return
             if user.id != game.yakudza_pending_id:
                 await answer_query(query, t("not_your_move", game.lang), alert=True)
                 return
-            if payload == "skip":
-                game.yakudza_kill_id = None
-                await answer_query(query, t("revenge_skipped", game.lang))
-                await edit_query(query, t("revenge_skipped_long", game.lang))
-            else:
+
+            if game.yakudza_choice_mode:
                 tid = int(payload)
                 target = game.players.get(tid)
                 if not target or not target.alive:
                     await answer_query(query, t("bad_target", game.lang), alert=True)
                     return
                 target.alive = False
-                game.yakudza_kill_id = tid
+                target_player = target
+                game.yakudza_pending_id = None
+                game.yakudza_choice_mode = False
+                final_choice = True
                 await answer_query(query, t("revenge_ok", game.lang))
                 await edit_query(query, t("revenge_ok_long", game.lang))
-                if target.role == Role.SHERIF.value:
-                    sergeant = game.by_role(Role.SERJANT, alive_only=True)
-                    if sergeant:
-                        sergeant.role = Role.SHERIF.value
-                        game.sheriff_user_id = sergeant.user_id
-                note_yakudza_bounty(game, user.id, target)
-                promote_new_don(game)
-            game.yakudza_pending_id = None
-            done = True
-        if done:
+                done = True
+            elif game.phase == Phase.NIGHT:
+                if payload == "skip":
+                    game.night_actions[user.id] = {"skip": True, "role": Role.YAKUDZA.value}
+                    await answer_query(query, t("revenge_skipped", game.lang))
+                    await edit_query(query, t("revenge_skipped_long", game.lang))
+                else:
+                    tid = int(payload)
+                    target = game.players.get(tid)
+                    if not target or not target.alive:
+                        await answer_query(query, t("bad_target", game.lang), alert=True)
+                        return
+                    game.night_actions[user.id] = {"target": tid, "role": Role.YAKUDZA.value}
+                    await answer_query(query, t("revenge_ok", game.lang))
+                    await edit_query(query, t("revenge_ok_long", game.lang))
+                done = True
+            elif game.phase == Phase.YAKUDZA:
+                if payload == "skip":
+                    game.yakudza_kill_id = None
+                    await answer_query(query, t("revenge_skipped", game.lang))
+                    await edit_query(query, t("revenge_skipped_long", game.lang))
+                    game.yakudza_pending_id = None
+                else:
+                    tid = int(payload)
+                    target = game.players.get(tid)
+                    if not target or not target.alive:
+                        await answer_query(query, t("bad_target", game.lang), alert=True)
+                        return
+                    target.alive = False
+                    game.yakudza_kill_id = tid
+                    await answer_query(query, t("revenge_ok", game.lang))
+                    await edit_query(query, t("revenge_ok_long", game.lang))
+                    if target.role == Role.SHERIF.value:
+                        sergeant = game.by_role(Role.SERJANT, alive_only=True)
+                        if sergeant:
+                            sergeant.role = Role.SHERIF.value
+                            game.sheriff_user_id = sergeant.user_id
+                    note_yakudza_bounty(game, user.id, target)
+                    promote_new_don(game)
+                    if target.role == Role.YAKUDZA.value:
+                        game.yakudza_pending_id = target.user_id
+                    else:
+                        game.yakudza_pending_id = None
+                done = True
+            else:
+                await answer_query(query, t("not_revenge_time", game.lang), alert=True)
+                return
+
+        if final_choice and target_player:
+            self.cancel_jobs(context, chat_id, "yakudza")
+            await send_html(
+                context.bot,
+                chat_id,
+                t("yakudza_final_group_chosen", game.lang, name=mention(target_player)),
+            )
+            game_after = await self.store.get(chat_id)
+            w = winner(game_after) if game_after else None
+            await self.end_game(context, chat_id, w)
+            return
+
+        if done and game.phase == Phase.YAKUDZA:
             self.cancel_jobs(context, chat_id, "yakudza")
             await self._after_yakudza(context, chat_id)
+        elif done and game.phase == Phase.NIGHT:
+            if night_ready_to_resolve(game):
+                await self.resolve_night_now(context, chat_id)
 
     async def on_yakudza_timeout(self, context: ContextTypes.DEFAULT_TYPE) -> None:
         await self.finish_yakudza_timeout(context, context.job.data["chat_id"])
@@ -107,10 +228,37 @@ class YakudzaFlow:
     async def finish_yakudza_timeout(
         self, context: ContextTypes.DEFAULT_TYPE, chat_id: int
     ) -> None:
+        target_player = None
+        final_choice = False
+        lang = "uz"
         async with self.store.locked(chat_id) as game:
             if not game or game.phase != Phase.YAKUDZA:
                 return
-            game.yakudza_pending_id = None
+            lang = game.lang
+            if game.yakudza_choice_mode:
+                import random
+
+                alive = game.alive()
+                if alive:
+                    target_player = random.choice(alive)
+                    target_player.alive = False
+                game.yakudza_pending_id = None
+                game.yakudza_choice_mode = False
+                final_choice = True
+            else:
+                game.yakudza_pending_id = None
+
+        if final_choice and target_player:
+            await send_html(
+                context.bot,
+                chat_id,
+                t("yakudza_final_group_timeout", lang, name=mention(target_player)),
+            )
+            game_after = await self.store.get(chat_id)
+            w = winner(game_after) if game_after else None
+            await self.end_game(context, chat_id, w)
+            return
+
         await self._after_yakudza(context, chat_id)
 
     async def _after_yakudza(self, context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:
@@ -123,7 +271,10 @@ class YakudzaFlow:
             kill_id = game.yakudza_kill_id
             nxt = game.after_yakudza or "day"
             victim = game.players.get(kill_id) if kill_id else None
-            game.yakudza_pending_id = None
+            if victim and victim.role == Role.YAKUDZA.value:
+                game.yakudza_pending_id = victim.user_id
+            else:
+                game.yakudza_pending_id = None
             game.after_yakudza = None
             # yakudza_kill_id ni e'lon uchun qoldiramiz, keyin tozalaymiz
 
@@ -157,7 +308,7 @@ class YakudzaFlow:
                     )
 
         if new_don:
-            await self.notify_new_don(context, new_don, game.lang)
+            await self.notify_new_don(context, new_don, game.lang, chat_id=chat_id)
 
         async with self.store.locked(chat_id) as g:
             if g:

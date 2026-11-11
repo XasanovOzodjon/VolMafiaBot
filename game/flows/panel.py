@@ -226,7 +226,7 @@ class PanelFlow:
                 if mates:
                     await send_html(context.bot, uid, mates)
         if new_don and not new_don.is_bot:
-            await self.notify_new_don(context, new_don, lang)
+            await self.notify_new_don(context, new_don, lang, chat_id=chat_id)
         return "ok"
 
 

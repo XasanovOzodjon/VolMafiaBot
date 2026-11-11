@@ -15,6 +15,7 @@ class NightOutcome:
     mafia_blocked: bool = False
     mafia_target: Optional[int] = None
     manyak_target: Optional[int] = None
+    yakudza_target: Optional[int] = None
     doctor_target: Optional[int] = None
     doctor_blocked: bool = False
     sheriff_kind: Optional[str] = None
@@ -183,6 +184,16 @@ def resolve_night(game: Game) -> NightOutcome:
         if _alive(game, tid):
             out.manyak_target = tid
 
+    yk = (
+        game.night_actions.get(game.yakudza_pending_id)
+        if game.yakudza_pending_id
+        else None
+    )
+    if yk and yk.get("target"):
+        tid = int(yk["target"])
+        if _alive(game, tid):
+            out.yakudza_target = tid
+
     attempts: dict[int, list[str]] = {}
 
     def add_kill(uid: Optional[int], cause: str) -> None:
@@ -212,6 +223,9 @@ def resolve_night(game: Game) -> NightOutcome:
     if out.manyak_target and mafia_or_manyak_can_kill(out.manyak_target):
         add_kill(out.manyak_target, "manyak")
 
+    if out.yakudza_target:
+        add_kill(out.yakudza_target, "yakudza")
+
     heal = out.doctor_target
     deaths: list[int] = []
     saved: list[int] = []
@@ -231,7 +245,9 @@ def resolve_night(game: Game) -> NightOutcome:
 
     for uid, causes in attempts.items():
         fatal = list(causes)
-        if "manyak" in causes:
+        if "yakudza" in causes:
+            deaths.append(uid)
+        elif "manyak" in causes:
             deaths.append(uid)
         elif "potrashitel" in causes:
             deaths.append(uid)
@@ -271,10 +287,15 @@ def resolve_night(game: Game) -> NightOutcome:
 
 
 def apply_night_outcome(game: Game, out: NightOutcome) -> None:
+    if game.yakudza_pending_id and game.yakudza_pending_id in game.night_actions:
+        game.yakudza_pending_id = None
+
     for uid in out.deaths:
         player = game.players.get(uid)
         if player:
             player.alive = False
+            if player.role == Role.YAKUDZA.value:
+                game.yakudza_pending_id = player.user_id
 
     game.doctor_last_target = out.new_doctor_last_target
     if out.krasotka_target and out.krasotka_target not in out.deaths:
@@ -310,6 +331,10 @@ def night_ready_to_resolve(game: Game) -> bool:
 
 def pending_night_ids(game: Game) -> list[int]:
     pending: list[int] = []
+    if game.yakudza_pending_id:
+        yak = game.players.get(game.yakudza_pending_id)
+        if yak and not _completed_night_action(game, yak):
+            pending.append(yak.user_id)
     for p in game.alive():
         if not _needs_night_action(game, p):
             continue
@@ -320,6 +345,8 @@ def pending_night_ids(game: Game) -> list[int]:
 
 
 def _needs_night_action(game: Game, player: Player) -> bool:
+    if game.yakudza_pending_id and player.user_id == game.yakudza_pending_id:
+        return True
     if player.user_id == game.sheriff_user_id:
         return True
     if player.role in (

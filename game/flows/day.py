@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 from data import config
 from game.chat_control import apply_day_chat_safe
 from game.deaths import mark_acted, promote_new_don
-from game.engine_base import answer_query, edit_html, edit_query_markup, send_html
+from game.engine_base import answer_query, edit_html, edit_query, edit_query_markup, send_html
 from game.jobs import confirm_timeout, day_timeout, lynch_reveal_timeout, vote_timeout
 from game.media import send_scene
 from game.models import Game, Phase
@@ -110,6 +110,8 @@ class DayFlow:
                 return
             game.phase = Phase.VOTE
             game.votes = {}
+            game.vote_round_id += 1
+            game.vote_session_active = True
 
         game = await self.store.get(chat_id)
         if not game:
@@ -203,67 +205,112 @@ class DayFlow:
     async def on_vote_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         query = update.callback_query
         user = update.effective_user
-        payload = (query.data or "").split(":")[-1]
+        if not query or not user:
+            return
+
+        async def _too_late() -> None:
+            await answer_query(query, "Siz ovoz berishga kechikdingiz", alert=True)
+            try:
+                await query.edit_message_reply_markup(reply_markup=None)
+            except Exception:
+                pass
+
+        parts = (query.data or "").split(":")
+        round_id_from_btn: int | None = None
+        payload: str = ""
+        if len(parts) == 3:
+            try:
+                round_id_from_btn = int(parts[1])
+            except ValueError:
+                round_id_from_btn = None
+            payload = parts[2]
+        elif len(parts) == 2:
+            payload = parts[1]
+        else:
+            await _too_late()
+            return
+
         chat_id = await self._callback_chat_id(update, user.id)
         if not chat_id:
-            lang = await self.store.get_user_lang(user.id)
-            await answer_query(query, t("not_in_this_game", lang), alert=True)
+            await _too_late()
             return
+
         ready = False
         snapshot = None
         choice: object = None
+        picked = ""
+
         async with self.store.locked(chat_id) as game:
-            lang = game.lang if game else "uz"
-            if not game or game.phase != Phase.VOTE:
-                await answer_query(query, t("vote_not_now", lang), alert=True)
+            # 2. O'yin mavjudmi?
+            if not game or game.phase == Phase.ENDED:
+                await _too_late()
                 return
+
+            # 3. round_id hozirgi raundga tengmi?
+            if round_id_from_btn is None or round_id_from_btn != game.vote_round_id:
+                await _too_late()
+                return
+
+            # 4. Ovoz berish sessiyasi faolmi?
+            if not game.vote_session_active or game.phase != Phase.VOTE:
+                await _too_late()
+                return
+
+            # 5. O'yinchi tirikmi va o'yindami?
             player = game.get(user.id)
             if not player or not player.alive:
-                await answer_query(query, t("vote_dead", lang), alert=True)
+                await _too_late()
                 return
             if game.no_vote_user_id == user.id:
-                await answer_query(query, t("vote_blocked", lang), alert=True)
+                await _too_late()
                 return
+
+            # 6. Bu o'yinchi bu raundda allaqachon ovoz berganmi?
             if user.id in game.votes:
-                await answer_query(query, t("vote_already", lang), alert=True)
+                await answer_query(query, "Siz allaqachon ovoz berdingiz", alert=True)
                 return
-            mark_acted(game, user.id)
-            choice: object
+
+            # 7. Ovozni yoz
             if payload != "skip":
-                target_id = int(payload)
-                if target_id == user.id:
-                    await answer_query(query, t("vote_self", lang), alert=True)
+                try:
+                    target_id = int(payload)
+                except ValueError:
+                    await _too_late()
                     return
-                if target_id not in game.players or not game.players[target_id].alive:
-                    await answer_query(query, t("vote_self", lang), alert=True)
+                if target_id == user.id:
+                    await answer_query(query, "O'zingizga ovoz bera olmaysiz.", alert=True)
+                    return
+                target_p = game.players.get(target_id)
+                if not target_p or not target_p.alive:
+                    await _too_late()
                     return
                 game.votes[user.id] = target_id
-                picked = html.escape(game.players[target_id].full_name)
+                picked = target_p.full_name
                 choice = target_id
             else:
+                if game.skip_used_at_low_players:
+                    await _too_late()
+                    return
                 game.votes[user.id] = "skip"
-                picked = t("vote_skip", lang)
+                picked = "Skip"
                 choice = "skip"
+
+            mark_acted(game, user.id)
             await answer_query(query)
-            await edit_query(
-                query,
-                t("vote_dm_picked", lang, name=picked),
-            )
+            try:
+                await edit_query(
+                    query,
+                    f"Siz {picked} ni tanladingiz",
+                    reply_markup=None,
+                )
+            except Exception:
+                pass
+
             snapshot = Game.from_dict(game.to_dict())
             ready = all(uid in game.votes for uid in _vote_eligible_ids(game))
+
         voter = snapshot.players.get(user.id) if snapshot else None
         if voter is not None and snapshot is not None:
-            if snapshot.status_message_id:
-                try:
-                    await edit_html(
-                        context.bot,
-                        chat_id,
-                        snapshot.status_message_id,
-                        vote_board(snapshot, config.VOTE_SECONDS),
-                        vote_open_kb(snapshot.lang, context.bot.username, chat_id),
-                    )
-                except Exception:
-                    pass
             await send_html(
                 context.bot,
                 chat_id,
@@ -283,11 +330,14 @@ class DayFlow:
             if not game or game.phase != Phase.VOTE:
                 return
             lang = game.lang
+            game.vote_session_active = False
             nominated = self._winner_of_votes(game)
             if nominated is None:
                 game.no_vote_user_id = None
                 game.votes = {}
                 game.phase = Phase.DAY
+                if len(game.alive()) <= 4:
+                    game.skip_used_at_low_players = True
             else:
                 game.nominated_id = nominated
                 game.confirm_votes = {}
@@ -469,8 +519,13 @@ class DayFlow:
                             kamikadze_victim = k_vic
                 if nominated.role == Role.YAKUDZA.value:
                     game.yakudza_pending_id = nominated.user_id
-                    game.after_yakudza = "night"
-                    yakudza = True
+                    if len(game.alive()) == 2:
+                        game.yakudza_choice_mode = True
+                        game.after_yakudza = "final_choice"
+                        yakudza = True
+                    else:
+                        game.after_yakudza = "night"
+                        yakudza = False
                 if game.sheriff_user_id == nominated.user_id:
                     sergeant = game.by_role(Role.SERJANT, alive_only=True)
                     if sergeant:
@@ -478,6 +533,8 @@ class DayFlow:
                         game.sheriff_user_id = sergeant.user_id
                         promoted = sergeant
                 new_don = promote_new_don(game)
+            elif not hang and len(game.alive()) <= 4:
+                game.skip_used_at_low_players = True
             game.phase = Phase.DAY
             game.nominated_id = None
             game.confirm_votes = {}
@@ -515,5 +572,5 @@ class DayFlow:
                 t("sheriff_promoted_dm", lang),
             )
         if new_don:
-            await self.notify_new_don(context, new_don, lang)
+            await self.notify_new_don(context, new_don, lang, chat_id=chat_id)
         await self.start_night(context, chat_id)

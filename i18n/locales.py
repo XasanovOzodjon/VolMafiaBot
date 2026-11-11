@@ -283,8 +283,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "reg_text": (
             "🎭 <b>Mafia o'yini</b>\n\n"
             "Ro'yxatdan o'tish ochiq.\n"
-            "O'yinchilar: <b>{n}/{max}</b> (minimum {min})\n\n"
-            "{players}"
+            "O'yinchilar: {n}/{max} (minimum {min})"
         ),
         "reg_empty": "Hali hech kim yo'q",
         "need_admin": "⚠️ Botni admin qiling: xabarlarni o'chirish va a'zolarni cheklash.",
@@ -332,11 +331,7 @@ TEXTS: dict[str, dict[str, str]] = {
             "Ovoz berish uchun {seconds} sekund"
         ),
         "vote_dm": "Aybdorlarni izlash vaqti keldi!\nKimni osishni xohlaysiz?",
-        "vote_dm_picked": (
-            "Aybdorlarni izlash vaqti keldi!\n"
-            "Kimni osishni xohlaysiz?\n\n"
-            "Siz {name}ni tanladingiz"
-        ),
+        "vote_dm_picked": "Siz {name} ni tanladingiz",
         "flavor_manyak": "🔪 Manyak Butalar orasiga yashirinib oldi...",
         "flavor_sheriff_kill": "🕵️ Komissar Katani pistoletini o'qladi...",
         "flavor_sheriff_check": "🕵️ Komissar Katani yovuzlarni qidirishga ketdi...",
@@ -415,8 +410,10 @@ TEXTS: dict[str, dict[str, str]] = {
         "end_winners_title": "G'oliblar:",
         "end_others_title": "Qolgan o'yinchilar:",
         "end_duration": "O'yin: {duration} davom etdi",
-        "new_don": "Yangi don - {name}",
-        "new_don_dm": "🤵 Siz yangi Donsiz.",
+        "new_don": "Mafiyalar orasidan yangi Don saylandi",
+        "new_don_public": "Mafiyalar orasidan yangi Don saylandi",
+        "new_don_dm": "Siz yangi Don bo'ldingiz",
+        "new_don_team": "Yangi Don saylandi: {name}",
         "stats_global": (
             "📊 <b>Bot statistikasi</b>\n\n"
             "O'yinlar: <b>{games}</b>\n"
@@ -445,7 +442,8 @@ TEXTS: dict[str, dict[str, str]] = {
         "vote_self": "O'zingizga ovoz bera olmaysiz.",
         "vote_dead": "O'lgan o'yinchilar ovoz bera olmaydi.",
         "vote_nominee": "Osilayotgan odam o'ziga ovoz bera olmaydi.",
-        "vote_already": "Siz allaqachon ovoz berdingiz.",
+        "vote_already": "Siz allaqachon ovoz berdingiz",
+        "vote_too_late": "Siz ovoz berishga kechikdingiz",
         "vote_blocked": "Bu kun ovoz bera olmaysiz.",
         "vote_not_now": "Hozir ovoz berish emas.",
         "vote_accepted": "Ovoz qabul qilindi",
@@ -508,7 +506,12 @@ TEXTS: dict[str, dict[str, str]] = {
         "host_cannot_leave": "Boshlovchi chiqa olmaydi. O'yinni /stop qiling.",
         "left_ok": 'Chiqdingiz.',
         "cannot_start_now": "O'yinni hozir boshlab bo'lmaydi.",
-        "only_host_start": 'Faqat boshlovchi start bosa oladi.',
+        "only_host_start": "Faqat o'yinni boshlagan odam bu buyruqni ishlata oladi",
+        "game_cancelled": "O'yin bekor qilindi",
+        "yakudza_final_prompt": "Qolgan 2 o'yinchidan birini tanlang. Sizning tanlovingiz o'yin g'olibini aniqlaydi (40 soniya):",
+        "yakudza_final_group_start": "⚖️ Yakudza hal qiluvchi tanlov bosqichida! Qolgan 2 o'yinchidan birini tanlash uchun 40 soniya vaqt berildi.",
+        "yakudza_final_group_chosen": "🎯 Yakudza {name} ni tanladi!",
+        "yakudza_final_group_timeout": "⏰ 40 soniya vaqt tugadi. Tasodifiy tanlov qilindi: {name} tanlandi.",
         "need_n_players": "Kamida {n} o'yinchi kerak.",
         "starting": "O'yin boshlanmoqda...",
         "game_cancelled_min": "O'yin bekor qilindi — kamida {n} o'yinchi kerak.",
@@ -885,8 +888,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "reg_text": (
             "🎭 <b>Игра Мафия</b>\n\n"
             "Набор открыт.\n"
-            "Игроки: <b>{n}/{max}</b> (минимум {min})\n\n"
-            "{players}"
+            "Игроки: {n}/{max} (минимум {min})"
         ),
         "reg_empty": "Пока никого нет",
         "need_admin": "⚠️ Сделайте бота админом: удаление сообщений и ограничение участников.",
@@ -934,11 +936,7 @@ TEXTS: dict[str, dict[str, str]] = {
             "На голосование {seconds} секунд"
         ),
         "vote_dm": "Пора искать виновных!\nКого хотите повесить?",
-        "vote_dm_picked": (
-            "Пора искать виновных!\n"
-            "Кого хотите повесить?\n\n"
-            "Вы выбрали: {name}"
-        ),
+        "vote_dm_picked": "Вы выбрали {name}",
         "flavor_manyak": "🔪 Маньяк спрятался в кустах...",
         "flavor_sheriff_kill": "🕵️ Комиссар Катани зарядил пистолет...",
         "flavor_sheriff_check": "🕵️ Комиссар Катани ушёл искать злодеев...",
@@ -1017,8 +1015,10 @@ TEXTS: dict[str, dict[str, str]] = {
         "end_winners_title": "Победители:",
         "end_others_title": "Остальные игроки:",
         "end_duration": "Игра длилась: {duration}",
-        "new_don": "Новый дон - {name}",
-        "new_don_dm": "🤵 Вы новый Дон.",
+        "new_don": "Среди мафии выбран новый Дон",
+        "new_don_public": "Среди мафии выбран новый Дон",
+        "new_don_dm": "Вы стали новым Доном",
+        "new_don_team": "Выбран новый Дон: {name}",
         "stats_global": (
             "📊 <b>Статистика бота</b>\n\n"
             "Игр: <b>{games}</b>\n"
@@ -1047,7 +1047,8 @@ TEXTS: dict[str, dict[str, str]] = {
         "vote_self": "Нельзя голосовать за себя.",
         "vote_dead": "Мёртвые не голосуют.",
         "vote_nominee": "Кандидат не голосует за свою казнь.",
-        "vote_already": "Вы уже проголосовали.",
+        "vote_already": "Вы уже проголосовали",
+        "vote_too_late": "Вы опоздали на голосование",
         "vote_blocked": "Сегодня вы не голосуете.",
         "vote_not_now": "Сейчас не время голосовать.",
         "vote_accepted": "Голос принят",
@@ -1108,7 +1109,12 @@ TEXTS: dict[str, dict[str, str]] = {
         "host_cannot_leave": 'Ведущий не может выйти. Остановите игру /stop.',
         "left_ok": 'Вы вышли.',
         "cannot_start_now": 'Сейчас игру начать нельзя.',
-        "only_host_start": 'Только ведущий может нажать start.',
+        "only_host_start": "Только начавший игру может использовать эту команду",
+        "game_cancelled": "Игра отменена",
+        "yakudza_final_prompt": "Выберите одного из 2 оставшихся игроков (40 секунд):",
+        "yakudza_final_group_start": "⚖️ Решающий выбор Якудзы! На выбор дается 40 секунд.",
+        "yakudza_final_group_chosen": "🎯 Якудза сделал выбор: {name} убит!",
+        "yakudza_final_group_timeout": "⏰ Время вышло (40 секунд). Случайный выбор: {name} убит!",
         "need_n_players": 'Нужно минимум {n} игроков.',
         "starting": 'Игра начинается...',
         "game_cancelled_min": 'Игра отменена — нужно минимум {n} игроков.',
@@ -1485,8 +1491,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "reg_text": (
             "🎭 <b>Mafia game</b>\n\n"
             "Signup is open.\n"
-            "Players: <b>{n}/{max}</b> (minimum {min})\n\n"
-            "{players}"
+            "Players: {n}/{max} (minimum {min})"
         ),
         "reg_empty": "Nobody yet",
         "need_admin": "⚠️ Make the bot admin: delete messages and restrict members.",
@@ -1534,11 +1539,7 @@ TEXTS: dict[str, dict[str, str]] = {
             "{seconds} seconds to vote"
         ),
         "vote_dm": "Time to find the guilty!\nWho do you want to hang?",
-        "vote_dm_picked": (
-            "Time to find the guilty!\n"
-            "Who do you want to hang?\n\n"
-            "You chose {name}"
-        ),
+        "vote_dm_picked": "You selected {name}",
         "flavor_manyak": "🔪 The maniac hid in the bushes...",
         "flavor_sheriff_kill": "🕵️ Commissioner Katani loaded his pistol...",
         "flavor_sheriff_check": "🕵️ Commissioner Katani went hunting villains...",
@@ -1617,8 +1618,10 @@ TEXTS: dict[str, dict[str, str]] = {
         "end_winners_title": "Winners:",
         "end_others_title": "Other players:",
         "end_duration": "The game lasted {duration}",
-        "new_don": "New don - {name}",
-        "new_don_dm": "🤵 You are the new Don.",
+        "new_don": "A new Don has been chosen among the mafia",
+        "new_don_public": "A new Don has been chosen among the mafia",
+        "new_don_dm": "You became the new Don",
+        "new_don_team": "New Don chosen: {name}",
         "stats_global": (
             "📊 <b>Bot statistics</b>\n\n"
             "Games: <b>{games}</b>\n"
@@ -1647,7 +1650,8 @@ TEXTS: dict[str, dict[str, str]] = {
         "vote_self": "You cannot vote for yourself.",
         "vote_dead": "Dead players cannot vote.",
         "vote_nominee": "The nominated player cannot vote on their own hanging.",
-        "vote_already": "You have already voted.",
+        "vote_already": "You have already voted",
+        "vote_too_late": "You are too late to vote",
         "vote_blocked": "You cannot vote today.",
         "vote_not_now": "It is not voting time.",
         "vote_accepted": "Vote recorded",
@@ -1708,7 +1712,12 @@ TEXTS: dict[str, dict[str, str]] = {
         "host_cannot_leave": 'The host cannot leave. Stop the game with /stop.',
         "left_ok": 'You left.',
         "cannot_start_now": 'The game cannot start now.',
-        "only_host_start": 'Only the host can press start.',
+        "only_host_start": "Only the game creator can use this command",
+        "game_cancelled": "Game cancelled",
+        "yakudza_final_prompt": "Choose one of the 2 remaining players (40 seconds):",
+        "yakudza_final_group_start": "⚖️ Decisive Yakuza choice! 40 seconds to choose.",
+        "yakudza_final_group_chosen": "🎯 Yakuza made a choice: {name} died!",
+        "yakudza_final_group_timeout": "⏰ Time is up (40 seconds). Random choice: {name} died!",
         "need_n_players": 'At least {n} players are required.',
         "starting": 'Starting the game...',
         "game_cancelled_min": 'Game cancelled — at least {n} players are required.',

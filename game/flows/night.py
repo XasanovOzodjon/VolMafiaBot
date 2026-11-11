@@ -128,7 +128,7 @@ class NightFlow:
             return
 
         if afk_new_don:
-            await self.notify_new_don(context, afk_new_don, game.lang)
+            await self.notify_new_don(context, afk_new_don, game.lang, chat_id=chat_id)
 
         await apply_night_chat_safe(context.bot, game, self.store)
         gif_id = await self.store.get_gif("night")
@@ -156,11 +156,7 @@ class NightFlow:
                 and don.alive
                 and don.role == Role.KROSNIY_OTETS.value
             ):
-                await send_html(
-                    context.bot,
-                    chat_id,
-                    t("new_don", game.lang, name=mention(don)),
-                )
+                await self.notify_new_don(context, don, game.lang, chat_id=chat_id)
 
         await self._send_night_prompts(context, game)
         self.schedule(context, night_timeout, config.NIGHT_SECONDS, chat_id, "night")
@@ -171,6 +167,15 @@ class NightFlow:
         await self.resolve_night_now(context, chat_id)
 
     async def _send_night_prompts(self, context: ContextTypes.DEFAULT_TYPE, game: Game) -> None:
+        if game.yakudza_pending_id:
+            yak = game.players.get(game.yakudza_pending_id)
+            if yak and not yak.is_bot:
+                await send_html(
+                    context.bot,
+                    yak.user_id,
+                    t("yakudza_prompt", game.lang),
+                    night_targets(game, "n:yk", yak.user_id, include_self=False, skip=True),
+                )
         for player in game.alive():
             if player.is_bot:
                 continue
@@ -552,15 +557,21 @@ class NightFlow:
                     for p in game.mafia(alive_only=True)
                     if not p.is_bot
                 ]
+            alive_before_night = len(game.alive())
             outcome = resolve_night(game)
             apply_night_outcome(game, outcome)
             deaths = [game.players[uid] for uid in outcome.deaths if uid in game.players]
             game.last_report = night_report(deaths, game.lang)
-            for p in deaths:
-                if p.role == Role.YAKUDZA.value:
-                    game.yakudza_pending_id = p.user_id
-                    game.after_yakudza = "day"
-                    yakudza = True
+            yakudza_died_at_night = any(p.role == Role.YAKUDZA.value for p in deaths)
+            if alive_before_night == 3 and len(game.alive()) == 2 and yakudza_died_at_night:
+                game.yakudza_choice_mode = True
+                yakudza = True
+            elif yakudza_died_at_night:
+                for p in deaths:
+                    if p.role == Role.YAKUDZA.value:
+                        game.yakudza_pending_id = p.user_id
+                        game.after_yakudza = "night"
+                yakudza = False
             if game.pending_new_don_id:
                 cand = game.players.get(game.pending_new_don_id)
                 if cand and cand.alive and cand.role == Role.KROSNIY_OTETS.value:
@@ -572,7 +583,7 @@ class NightFlow:
 
         lang = game.lang
         if new_don:
-            await self.notify_new_don(context, new_don, lang)
+            await self.notify_new_don(context, new_don, lang, chat_id=chat_id)
         if decided_text:
             for uid in mafia_human_ids:
                 await send_html(context.bot, uid, decided_text)
@@ -600,8 +611,8 @@ class NightFlow:
 
         await self._whisper_night_results(context, game, outcome)
 
-        if yakudza:
-            await self.start_day(context, chat_id)
+        if yakudza and game.yakudza_choice_mode:
+            await self.start_yakudza(context, chat_id)
             return
 
         w = winner(game)

@@ -120,6 +120,7 @@ def sheriff_menu(lang: str = "uz") -> InlineKeyboardMarkup:
 def vote_kb(game: Game, voter_id: int | None = None) -> InlineKeyboardMarkup:
     voter = game.players.get(voter_id) if voter_id else None
     rows: list[list[InlineKeyboardButton]] = []
+    round_id = game.vote_round_id
     for p in game.alive():
         if voter_id and p.user_id == voter_id:
             continue
@@ -132,7 +133,10 @@ def vote_kb(game: Game, voter_id: int | None = None) -> InlineKeyboardMarkup:
             )
         name = p.full_name[:36] or str(p.user_id)
         label = f"{prefix} {name}".strip() if prefix else name
-        rows.append([InlineKeyboardButton(label, callback_data=f"v:{p.user_id}")])
+        rows.append([InlineKeyboardButton(label, callback_data=f"v:{round_id}:{p.user_id}")])
+    lang = getattr(game, "lang", "uz")
+    if not game.skip_used_at_low_players:
+        rows.append([InlineKeyboardButton(t("btn_skip", lang), callback_data=f"v:{round_id}:skip")])
     return InlineKeyboardMarkup(rows)
 
 

@@ -127,7 +127,19 @@ class RegistrationFlow:
                 phase=Phase.REGISTRATION,
                 lang=lang,
             )
+            game.players[user.id] = Player(
+                user_id=user.id,
+                full_name=user.full_name,
+                username=user.username,
+                is_host=True,
+                join_order=1,
+            )
+            await self.store.bind_user(user.id, chat.id)
+            await self.store.note_group_player(chat.id, user.id)
             await self.store.save(game)
+
+        if update.effective_message:
+            await delete_message_quietly(context.bot, chat.id, update.effective_message.message_id)
 
         await self._create_registration(update, context)
 
@@ -263,6 +275,12 @@ class RegistrationFlow:
             return
         if not game or game.phase != Phase.REGISTRATION:
             await update.effective_message.reply_html(t("help_group", lang))
+            return
+        user = update.effective_user
+        if not user or user.id != game.host_id:
+            await update.effective_message.reply_html(
+                "Faqat o'yinni boshlagan odam bu buyruqni ishlata oladi"
+            )
             return
         need = _start_min(game)
         if _human_count(game) < need:
@@ -520,11 +538,24 @@ class RegistrationFlow:
                     wait = True
         if cancel:
             self.cancel_jobs(context, chat_id)
-            await send_html(
-                context.bot,
-                chat_id,
-                t("game_cancelled_min", lang, n=need),
-            )
+            cancel_text = t("game_cancelled", lang)
+            status_id = None
+            async with self.store.locked(chat_id) as g:
+                if g:
+                    status_id = g.status_message_id
+            if status_id:
+                from game.engine_base import edit_html
+
+                try:
+                    await edit_html(context.bot, chat_id, status_id, cancel_text, None)
+                except Exception:
+                    pass
+            else:
+                await send_html(
+                    context.bot,
+                    chat_id,
+                    cancel_text,
+                )
             return
         if wait:
             await send_html(context.bot, chat_id, t("reg_wait_start", lang))
@@ -609,7 +640,21 @@ class RegistrationFlow:
         game = await self.store.get(chat_id)
         if not game:
             return
-        await delete_message_quietly(context.bot, chat_id, game.status_message_id)
+        if game.status_message_id:
+            from game.engine_base import edit_html
+
+            reg_text_str = registration_text(
+                game,
+                config.REGISTRATION_SECONDS,
+                config.MIN_PLAYERS,
+                config.MAX_PLAYERS,
+            )
+            try:
+                await edit_html(
+                    context.bot, chat_id, game.status_message_id, reg_text_str, None
+                )
+            except Exception:
+                pass
         started = game_started_text(game.lang)
         if game.test_mode:
             humans = len(game.humans(alive_only=False))

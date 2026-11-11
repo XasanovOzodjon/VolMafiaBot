@@ -115,6 +115,10 @@ class Game:
     yakudza_bounty_ids: list[int] = field(default_factory=list)
     boosts_ok: bool = True
     shop_protect_announce: bool = False
+    vote_round_id: int = 0
+    vote_session_active: bool = False
+    skip_used_at_low_players: bool = False
+    yakudza_choice_mode: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -148,6 +152,10 @@ class Game:
             "yakudza_bounty_ids": list(self.yakudza_bounty_ids or []),
             "boosts_ok": bool(self.boosts_ok),
             "shop_protect_announce": bool(self.shop_protect_announce),
+            "vote_round_id": int(self.vote_round_id or 0),
+            "vote_session_active": bool(self.vote_session_active),
+            "skip_used_at_low_players": bool(self.skip_used_at_low_players),
+            "yakudza_choice_mode": bool(self.yakudza_choice_mode),
         }
 
     @classmethod
@@ -190,6 +198,10 @@ class Game:
             ],
             boosts_ok=bool(data.get("boosts_ok", True)),
             shop_protect_announce=bool(data.get("shop_protect_announce", False)),
+            vote_round_id=int(data.get("vote_round_id") or 0),
+            vote_session_active=bool(data.get("vote_session_active", False)),
+            skip_used_at_low_players=bool(data.get("skip_used_at_low_players", False)),
+            yakudza_choice_mode=bool(data.get("yakudza_choice_mode", False)),
         )
 
     def alive(self) -> list[Player]:

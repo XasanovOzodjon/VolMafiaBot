@@ -5,8 +5,10 @@ from game.roles import Role, is_mafia
 def winner(game: Game) -> str | None:
     """town / mafia / manyak yoki None (davom etadi).
 
-    Mafia ovozi va tun o'ldirishi teng/ko'p bo'lsa (1v1, 2v2, 3v3...)
-    aholi yuta olmaydi — o'yin shu yerda tugaydi.
+    Tirik o'yinchilar soni 2 yoki undan kam bo'lsa,
+    avtomatik ravishda yomon tomon (mafiya/manyak) g'alaba qozonadi,
+    agar yomon tomon bo'lmasa shahar g'alaba qozonadi.
+    1v1 hech qachon davom etmaydi.
     """
     alive = game.alive()
     if not alive:
@@ -14,13 +16,20 @@ def winner(game: Game) -> str | None:
 
     mafia = [p for p in alive if p.role and is_mafia(p.role)]
     manyak = [p for p in alive if p.role == Role.MANYAK.value]
-    rest = len(alive) - len(mafia)
 
-    if mafia and len(mafia) >= rest:
-        return "mafia"
     if not mafia and not manyak:
         return "town"
-    if not mafia and len(alive) == 1 and manyak:
-        return "manyak"
+
+    if len(alive) <= 2:
+        if mafia:
+            return "mafia"
+        if manyak:
+            return "manyak"
+        return "town"
+
+    rest = len(alive) - len(mafia)
+    if mafia and len(mafia) >= rest:
+        return "mafia"
+
     return None
 

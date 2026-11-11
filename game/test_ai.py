@@ -109,6 +109,12 @@ def night_action_for(game: Game, player: Player) -> tuple[dict[str, Any], Option
     if not others:
         return {"skip": True}, None
 
+    if game.yakudza_pending_id and player.user_id == game.yakudza_pending_id:
+        target_id = yakudza_target(game, player)
+        if target_id:
+            return {"target": target_id, "role": Role.YAKUDZA.value}, "yk"
+        return {"skip": True}, None
+
     if player.user_id == game.sheriff_user_id:
         kill = game.night_number >= 2 and random.random() < 0.42
         pool = others

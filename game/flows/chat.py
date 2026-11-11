@@ -204,7 +204,7 @@ class ChatFlow:
                     t("sheriff_promoted_dm", lang),
                 )
         if new_don:
-            await self.notify_new_don(context, new_don, lang)
+            await self.notify_new_don(context, new_don, lang, chat_id=chat_id)
         if yakudza:
             self.cancel_jobs(context, chat_id, "night", "day", "vote", "confirm")
             await self.start_yakudza(context, chat_id)
@@ -274,7 +274,20 @@ class ChatFlow:
         await restore_all_safe(context.bot, snapshot, self.store)
         lang = snapshot.lang or "uz"
         if cancelled:
-            text = t("game_stopped", lang)
+            text = t("game_cancelled", lang)
+            if snapshot.status_message_id and snapshot.phase in (
+                Phase.REGISTRATION,
+                Phase.TEST_SETUP,
+            ):
+                from game.engine_base import edit_html
+
+                try:
+                    await edit_html(
+                        context.bot, chat_id, snapshot.status_message_id, text, None
+                    )
+                    return
+                except Exception:
+                    pass
         else:
             text = end_game_text(snapshot, winner_code, lang)
             if not snapshot.test_mode:
